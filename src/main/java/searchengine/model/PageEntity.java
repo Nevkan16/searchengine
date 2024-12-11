@@ -6,7 +6,7 @@ import javax.persistence.*;
 
 @Data
 @Entity
-@Table(name = "page")
+@Table(name = "page", indexes = @Index(name = "idx_page_path", columnList = "path"))
 public class PageEntity {
 
     @Id

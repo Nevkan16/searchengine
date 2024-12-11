@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.statistics.StatisticsResponse;
+import searchengine.services.PageService;
 import searchengine.services.SiteService;
 import searchengine.services.StatisticsService;
 
@@ -16,6 +17,7 @@ public class ApiController {
 
     private final StatisticsService statisticsService;
     private final SiteService siteService;
+    private final PageService pageService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -23,6 +25,7 @@ public class ApiController {
     }
     @GetMapping("/startIndexing")
     public ResponseEntity<?> startIndexing() {
+        pageService.cleanData();
         siteService.indexAllSites();
         return ResponseEntity.ok("Indexing started for all sites.");
     }
