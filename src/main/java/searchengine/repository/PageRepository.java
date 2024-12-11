@@ -2,7 +2,7 @@ package searchengine.repository;
 
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import searchengine.entity.PageEntity;
+import searchengine.model.PageEntity;
 
 public interface PageRepository extends JpaRepository<PageEntity, Integer> {
 }

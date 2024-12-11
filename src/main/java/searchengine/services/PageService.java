@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
-import searchengine.entity.PageEntity;
-import searchengine.entity.SiteEntity;
+import searchengine.model.PageEntity;
+import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 
 import java.io.IOException;

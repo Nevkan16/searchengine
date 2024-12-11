@@ -1,7 +1,7 @@
 package searchengine.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import searchengine.entity.SiteEntity;
+import searchengine.model.SiteEntity;
 
 import java.util.Optional;
 

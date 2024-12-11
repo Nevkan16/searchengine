@@ -7,7 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import searchengine.entity.SiteEntity;
+import searchengine.model.SiteEntity;
 import searchengine.services.PageService;
 
 import java.io.IOException;

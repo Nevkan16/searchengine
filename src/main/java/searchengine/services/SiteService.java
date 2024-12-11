@@ -7,7 +7,7 @@ import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.entity.SiteEntity;
+import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
@@ -25,7 +25,7 @@ public class SiteService {
     private final SitesList sitesList;
     private ForkJoinPool forkJoinPool;
 
-    public SiteEntity createOrUpdateSite(String url, String name) {
+    public void createOrUpdateSite(String url, String name) {
         SiteEntity site = siteRepository.findByUrl(url).orElseGet(() -> {
             SiteEntity newSite = new SiteEntity();
             newSite.setUrl(url);
@@ -36,7 +36,7 @@ public class SiteService {
         site.setStatus(SiteEntity.Status.INDEXING);
         site.setStatusTime(LocalDateTime.now());
         site.setLastError(null);
-        return siteRepository.save(site);
+        siteRepository.save(site);
     }
 
     public void indexAllSites() {
