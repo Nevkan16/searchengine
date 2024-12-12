@@ -28,13 +28,13 @@ public class ApiController {
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
         siteService.getSiteList();
-        siteService.processSiteLinks();
-        return ResponseEntity.ok(new ApiResponse(true, null));
+        siteService.processSiteLinks();  // Теперь этот метод выполняется асинхронно
+        return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
-        siteService.stopProcessing();
+        siteService.pauseProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
 }

@@ -1,6 +1,7 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -16,6 +17,7 @@ public class SiteService {
 
     private final SitesList sitesList;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    private final AtomicBoolean paused = new AtomicBoolean(false);  // Флаг приостановки
     private ForkJoinPool pool;
 
     public void getSiteList() {
@@ -24,9 +26,19 @@ public class SiteService {
         }
     }
 
+    @Async  // Сделаем процесс обработки асинхронным
     public void processSiteLinks() {
         stopRequested.set(false);
-        pool = new ForkJoinPool();
+
+        // Если процесс на паузе, снимаем паузу и продолжаем
+        if (paused.get()) {
+            resumeProcessing();  // Вызываем resumeProcessing, чтобы продолжить выполнение
+        }
+
+        // Пересоздаем пул, если он был закрыт
+        if (pool == null || pool.isShutdown()) {
+            pool = new ForkJoinPool();
+        }
 
         // Обработка каждого сайта в отдельном потоке
         pool.submit(() -> {
@@ -44,6 +56,18 @@ public class SiteService {
                     if (stopRequested.get()) {
                         System.out.println("Stopping link processing...");
                         return;
+                    }
+
+                    // Проверка флага на паузу
+                    while (paused.get()) {
+                        try {
+                            synchronized (paused) {
+                                paused.wait();  // Приостановка потока
+                            }
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            System.out.println("Thread interrupted while waiting.");
+                        }
                     }
 
                     // Задержка перед открытием новой ссылки
@@ -70,4 +94,18 @@ public class SiteService {
         }
     }
 
+    // Метод для приостановки работы
+    public void pauseProcessing() {
+        paused.set(true);  // Устанавливаем флаг паузы
+        System.out.println("Processing paused.");
+    }
+
+    // Метод для продолжения работы
+    public void resumeProcessing() {
+        synchronized (paused) {
+            paused.set(false);  // Снимаем флаг паузы
+            paused.notifyAll();  // Разблокируем потоки
+        }
+        System.out.println("Processing resumed.");
+    }
 }
