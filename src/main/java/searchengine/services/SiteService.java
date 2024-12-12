@@ -130,6 +130,11 @@ public class SiteService {
         logIndexStopped();
     }
 
+    public boolean isIndexing() {
+        // Проверяем, есть ли сайты со статусом INDEXING
+        return siteRepository.findAll().iterator().hasNext() && siteRepository.findAll().iterator().next().getStatus() == SiteEntity.Status.INDEXING;
+    }
+
     private void logIndexStopped() {
         log.info("Indexing has been stopped");
     }

@@ -10,6 +10,9 @@ import searchengine.services.PageService;
 import searchengine.services.SiteService;
 import searchengine.services.StatisticsService;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api")
@@ -24,15 +27,28 @@ public class ApiController {
         return ResponseEntity.ok(statisticsService.getStatistics());
     }
     @GetMapping("/startIndexing")
-    public ResponseEntity<?> startIndexing() {
+    public ResponseEntity<Map<String, Object>> startIndexing() {
+        if (siteService.isIndexing()) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("result", false);
+            errorResponse.put("error", "Индексация уже запущена");
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
         pageService.cleanData();
         siteService.indexAllSites();
-        return ResponseEntity.ok("Indexing started for all sites.");
+        Map<String, Object> successResponse = new HashMap<>();
+        successResponse.put("result", true);
+        return ResponseEntity.ok(successResponse);
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<?> stopIndexing() {
+        if (!siteService.isIndexing()) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("result", false, "error", "Индексация не запущена")
+            );
+        }
         siteService.stopIndexing();
-        return ResponseEntity.ok("Indexing stopped");
+        return ResponseEntity.ok(Map.of("result", true));
     }
 }
