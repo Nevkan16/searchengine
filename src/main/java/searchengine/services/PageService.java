@@ -52,5 +52,18 @@ public class PageService {
             }
         });
     }
+
+    @Transactional
+    public void cleanDataForSite(String siteUrl) {
+        Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl);
+        if (siteEntity.isPresent()) {
+            // Удаляем все страницы, связанные с этим сайтом
+            pageRepository.deleteBySite(siteEntity.get());
+
+            // Удаляем запись о сайте
+            siteRepository.delete(siteEntity.get());
+        }
+    }
+
 }
 

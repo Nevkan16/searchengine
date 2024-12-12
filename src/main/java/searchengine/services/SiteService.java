@@ -73,24 +73,17 @@ public class SiteService {
                 return;
             }
 
+            // Очищаем данные по текущему сайту
+            pageService.cleanDataForSite(site.getUrl());
+
+            // Создаем или обновляем запись сайта
             createOrUpdateSite(site.getUrl(), site.getName());
 
             // Запуск индексации сайта в отдельном потоке
             indexSiteInNewThread(site.getUrl());
         }
-
-        // Индексация всех сайтов из репозитория
-        Iterable<SiteEntity> sites = siteRepository.findAll();
-        for (SiteEntity site : sites) {
-            if (LinkTask.getStopRequest()) {
-                logIndexStopped();
-                return;
-            }
-
-            // Запуск индексации сайта в отдельном потоке
-            indexSiteInNewThread(site.getUrl());
-        }
     }
+
 
     private void indexSiteInNewThread(String url) {
         forkJoinPool.submit(() -> {

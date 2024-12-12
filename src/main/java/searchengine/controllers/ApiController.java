@@ -30,7 +30,6 @@ public class ApiController {
         if (siteService.isIndexing()) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
         }
-        pageService.cleanData();
         siteService.indexAllSites();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
