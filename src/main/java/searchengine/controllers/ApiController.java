@@ -27,19 +27,14 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
-        if (siteService.isIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
-        }
-        siteService.indexAllSites();
+        siteService.getSiteList();
+        siteService.processSiteLinks();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
-        if (!siteService.isIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация не запущена"));
-        }
-        siteService.stopIndexing();
+        siteService.stopProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
 }

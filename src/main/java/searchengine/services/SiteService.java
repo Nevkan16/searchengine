@@ -1,134 +1,73 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.model.SiteEntity;
-import searchengine.repository.SiteRepository;
-import searchengine.task.LinkTask;
+import searchengine.task.LinkExtractor;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SiteService {
 
-    private final SiteRepository siteRepository;
-    private final PageService pageService;
     private final SitesList sitesList;
-    private ForkJoinPool forkJoinPool;
+    private final AtomicBoolean stopRequested = new AtomicBoolean(false);
+    private ForkJoinPool pool;
 
-    public void createOrUpdateSite(String url, String name) {
-        SiteEntity site = siteRepository.findByUrl(url).orElseGet(() -> {
-            SiteEntity newSite = new SiteEntity();
-            newSite.setUrl(url);
-            newSite.setName(resolveName(name, url));
-            return newSite;
-        });
-
-        site.setStatus(SiteEntity.Status.INDEXING);
-        site.setStatusTime(LocalDateTime.now());
-        site.setLastError(null);
-        siteRepository.save(site);
-    }
-
-    public void indexAllSites() {
-        LinkTask.resetStopFlag();
-
-        // Перезапуск ForkJoinPool, если он был завершен
-        initializeForkJoinPool();
-
-        if (LinkTask.getStopRequest()) {
-            logIndexStopped();
-            return;
-        }
-
-        try {
-            // Обрабатываем все сайты для индексации
-            processSites();
-        } finally {
-            forkJoinPool.shutdown();
-            logIndexStopped();
+    public void getSiteList() {
+        for (Site list : sitesList.getSites()) {
+            System.out.println(list.getUrl());
         }
     }
 
-    private void initializeForkJoinPool() {
-        if (forkJoinPool == null || forkJoinPool.isShutdown()) {
-            forkJoinPool = new ForkJoinPool();
-        }
-    }
+    public void processSiteLinks() {
+        stopRequested.set(false);
+        pool = new ForkJoinPool();
 
-    private void processSites() {
-        // Индексация сайтов из настроек
-        for (Site site : sitesList.getSites()) {
-            if (LinkTask.getStopRequest()) {
-                logIndexStopped();
-                return;
-            }
-
-            // Очищаем данные по текущему сайту
-            pageService.cleanDataForSite(site.getUrl());
-
-            // Создаем или обновляем запись сайта
-            createOrUpdateSite(site.getUrl(), site.getName());
-
-            // Запуск индексации сайта в отдельном потоке
-            indexSiteInNewThread(site.getUrl());
-        }
-    }
-
-
-    private void indexSiteInNewThread(String url) {
-        forkJoinPool.submit(() -> {
-            try {
-                Document rootDoc = Jsoup.connect(url).get();
-                SiteEntity site = siteRepository.findByUrl(url).orElseThrow(() -> new IOException("Site not found"));
-
-                LinkTask linkTask = new LinkTask(rootDoc, site.getUrl(), 1, 3, pageService, site);
-
-                // Выполняем задачу и ожидаем её завершения
-                forkJoinPool.submit(linkTask).join();
-
-                site.setStatus(SiteEntity.Status.INDEXED);
-                siteRepository.save(site);
-                if (LinkTask.getStopRequest()) {
-                    logIndexStopped();
+        // Обработка каждого сайта в отдельном потоке
+        pool.submit(() -> {
+            sitesList.getSites().parallelStream().forEach(site -> {
+                if (stopRequested.get()) {
+                    System.out.println("Stopping site processing...");
+                    return;
                 }
-            } catch (IOException e) {
-                // В случае ошибки меняем статус сайта на FAILED
-                SiteEntity site = siteRepository.findByUrl(url).orElseThrow(() -> new RuntimeException("Site not found"));
-                site.setStatus(SiteEntity.Status.FAILED);
-                site.setLastError(e.getMessage());
-                siteRepository.save(site);
-                if (LinkTask.getStopRequest()) {
-                    logIndexStopped();
-                }
-            }
-        });
+
+                String siteUrl = site.getUrl();
+                System.out.println("Processing site: " + siteUrl);
+
+                Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl);
+                links.forEach(link -> {
+                    if (stopRequested.get()) {
+                        System.out.println("Stopping link processing...");
+                        return;
+                    }
+
+                    // Задержка перед открытием новой ссылки
+                    try {
+                        Thread.sleep(500); // Задержка 500 мс (0.5 сек.)
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        System.out.println("Thread interrupted while sleeping.");
+                    }
+
+                    System.out.println("Processing link: " + link);
+                });
+            });
+        }).join();
+
+        pool.shutdown();
     }
 
-    private String resolveName(String name, String url) {
-        return (name == null || name.isEmpty()) ? url : name;
+    public void stopProcessing() {
+        if (pool != null && !pool.isShutdown()) {
+            stopRequested.set(true);
+            pool.shutdownNow();
+            System.out.println("Processing stopped.");
+        }
     }
 
-    public void stopIndexing() {
-        LinkTask.requestStop();
-        logIndexStopped();
-    }
-
-    public boolean isIndexing() {
-        // Проверяем, есть ли сайты со статусом INDEXING
-        return siteRepository.findAll().iterator().hasNext() && siteRepository.findAll().iterator().next().getStatus() == SiteEntity.Status.INDEXING;
-    }
-
-    private void logIndexStopped() {
-        log.info("Indexing has been stopped");
-    }
 }
