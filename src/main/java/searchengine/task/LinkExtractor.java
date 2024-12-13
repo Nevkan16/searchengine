@@ -8,25 +8,27 @@ import org.jsoup.select.Elements;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class LinkExtractor {
 
-    private static final Set<String> visitedLinks = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-    public static Set<String> getLinks(String url, String baseUrl) {
+    public static Set<String> getLinks(String baseUrl, String url, String userAgent, String referrer) {
         Set<String> validLinks = new HashSet<>();
+        Set<String> visitedLinks = new HashSet<>();
 
         try {
-            Document doc = Jsoup.connect(url).get();
-            Elements links = doc.select("a[href]");
+            // Используем FakeConfig для добавления заголовков
+            Document doc = Jsoup.connect(url)
+                    .userAgent(userAgent)  // Установка User-Agent
+                    .referrer(referrer)    // Установка Referrer
+                    .get();
 
+            Elements links = doc.select("a[href]");
             for (Element link : links) {
                 String linkHref = link.attr("abs:href");
 
+                // Проверяем ссылку через LinkValidator
                 if (LinkValidator.isValid(linkHref, baseUrl) && visitedLinks.add(linkHref)) {
                     validLinks.add(linkHref);
                 }
@@ -82,4 +84,3 @@ public class LinkExtractor {
         }
     }
 }
-
