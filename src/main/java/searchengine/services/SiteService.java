@@ -20,6 +20,7 @@ public class SiteService {
     private final FakeConfig fakeConfig;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
     private final AtomicBoolean paused = new AtomicBoolean(false);
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private ForkJoinPool pool;
 
     public void getSiteList() {
@@ -28,13 +29,26 @@ public class SiteService {
 
     @Async
     public void processSiteLinks() {
+        if (isRunning.get()) {
+            if (paused.get()) {
+                System.out.println("Processing is paused. Resuming...");
+                resumeProcessing(); // Если процесс на паузе, возобновляем его
+            } else {
+                System.out.println("Processing is already running. Returning...");
+                return; // Если процесс уже выполняется, выходим
+            }
+        }
+
         initializeProcessing();
+
+        isRunning.set(true); // Устанавливаем флаг, что процесс запущен
 
         pool.submit(() -> {
             sitesList.getSites().parallelStream().forEach(this::processSite);
         }).join();
 
         shutdownPool();
+        isRunning.set(false); // После завершения процесса сбрасываем флаг
     }
 
     private void initializeProcessing() {
