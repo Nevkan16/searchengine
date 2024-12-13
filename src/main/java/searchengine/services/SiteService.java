@@ -43,10 +43,14 @@ public class SiteService {
         });
     }
 
+    public Set<String> extractedLinks(String url) {
+        return LinkExtractor.getLinks(url, url, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
+    }
+
     public boolean isValidSite(String siteUrl) {
         try {
             // Проверяем ссылки
-            Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
+            Set<String> links = extractedLinks(siteUrl);
             if (links.isEmpty()) {
                 System.out.println("Ссылки не найдены на сайте: " + siteUrl);
                 return false; // Если ссылок нет, сайт невалиден
@@ -118,7 +122,7 @@ public class SiteService {
         String siteUrl = site.getUrl();
         System.out.println("Processing site: " + siteUrl);
 
-        Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
+        Set<String> links = extractedLinks(siteUrl);
         links.forEach(this::processLink);
     }
 
