@@ -178,4 +178,8 @@ public class SiteService {
         }
         System.out.println("Processing resumed.");
     }
+
+    public boolean isRunning() {
+        return isRunning.get();
+    }
 }
