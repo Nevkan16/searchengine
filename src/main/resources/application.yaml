@@ -19,9 +19,9 @@ indexing-settings:
       name: Лента.ру
     - url: https://www.playback.ru
       name: PlayBack.Ru
-    - url: https://skillbox.ru/
+    - url: https://skillbox.ru
       name: skillbox
-    - url: https://www.svetlovka.ru/
+    - url: https://www.svetlovka.ru
       name: Svetlovka
 
 fake:

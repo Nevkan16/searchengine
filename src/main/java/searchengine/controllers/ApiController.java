@@ -27,7 +27,6 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
-        siteService.getSiteList();
         siteService.processSiteLinks();  // Теперь этот метод выполняется асинхронно
         return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
     }
