@@ -8,9 +8,11 @@ import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.task.LinkExtractor;
 
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -42,30 +44,41 @@ public class SiteService {
             String siteUrl = site.getUrl();
             if (isValidSite(siteUrl)) {
                 validSites.add(site);
-                System.out.println("Valid site: " + siteUrl);
-            } else {
-                System.out.println("Invalid site: " + siteUrl);
             }
         });
     }
 
-    // Проверка сайта на валидность
-    private boolean isValidSite(String siteUrl) {
+    public boolean isValidSite(String siteUrl) {
         try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(siteUrl).openConnection();
-            connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000); // Тайм-аут 5 секунд
-            connection.setReadTimeout(5000);
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                // Сайт доступен, теперь проверяем ссылки
-                Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
-                return !links.isEmpty();  // Если хотя бы одна ссылка есть, сайт валиден
+            // Создаем запрос
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(siteUrl))
+                    .timeout(Duration.ofSeconds(5)) // Тайм-аут 5 секунд
+                    .build();
+
+            // Выполняем запрос и получаем ответ
+            HttpResponse<String> response = HttpClient.newHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                System.out.println("Ошибка ответа от сайта: " + siteUrl + " - HTTP " + response.statusCode());
+                return false; // Если статус не 200, сайт невалиден
             }
-        } catch (IOException e) {
-            System.out.println("Error checking site: " + siteUrl + " - " + e.getMessage());
+
+            // Проверяем ссылки
+            Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
+            if (links.isEmpty()) {
+                System.out.println("Ссылки не найдены на сайте: " + siteUrl);
+                return false; // Если ссылок нет, сайт невалиден
+            }
+
+            System.out.println("Сайт валиден: " + siteUrl);
+            return true; // Ссылки найдены, сайт валиден
+
+        } catch (Exception e) {
+            System.out.println("Ошибка при проверке сайта: " + siteUrl + " - " + e.getMessage());
+            return false; // Если произошла ошибка, сайт невалиден
         }
-        return false;  // Если ошибка или нет ссылок, сайт невалиден
     }
 
     @Async
@@ -92,13 +105,13 @@ public class SiteService {
         // Проверка валидности сайтов перед обработкой ссылок
         validateSites();
 
-        pool.submit(() -> {
-            validSites.parallelStream().forEach(this::processSite);  // Используем только валидные сайты
-        }).join();
+        // Параллельная обработка валидных сайтов
+        validSites.parallelStream().forEach(this::processSite);  // Используем только валидные сайты
 
         shutdownPool();
         isRunning.set(false); // После завершения процесса сбрасываем флаг
     }
+
 
     public void stopPool() {
         pool.shutdownNow();
