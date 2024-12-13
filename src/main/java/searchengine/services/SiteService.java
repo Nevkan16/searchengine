@@ -60,10 +60,10 @@ public class SiteService {
             HttpResponse<String> response = HttpClient.newHttpClient()
                     .send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() != 200) {
-                System.out.println("Ошибка ответа от сайта: " + siteUrl + " - HTTP " + response.statusCode());
-                return false; // Если статус не 200, сайт невалиден
-            }
+//            if (response.statusCode() != 200) {
+//                System.out.println("Ошибка ответа от сайта: " + siteUrl + " - HTTP " + response.statusCode());
+//                return false; // Если статус не 200, сайт невалиден
+//            }
 
             // Проверяем ссылки
             Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
