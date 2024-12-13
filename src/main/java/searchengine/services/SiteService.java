@@ -17,19 +17,27 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SiteService {
 
     private final SitesList sitesList;
-    private final FakeConfig fakeConfig;  // Внедряем FakeConfig
+    private final FakeConfig fakeConfig;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
-    private final AtomicBoolean paused = new AtomicBoolean(false);  // Флаг приостановки
+    private final AtomicBoolean paused = new AtomicBoolean(false);
     private ForkJoinPool pool;
 
     public void getSiteList() {
-        for (Site list : sitesList.getSites()) {
-            System.out.println(list.getUrl());
-        }
+        sitesList.getSites().forEach(site -> System.out.println(site.getUrl()));
     }
 
     @Async
     public void processSiteLinks() {
+        initializeProcessing();
+
+        pool.submit(() -> {
+            sitesList.getSites().parallelStream().forEach(this::processSite);
+        }).join();
+
+        shutdownPool();
+    }
+
+    private void initializeProcessing() {
         stopRequested.set(false);
 
         if (paused.get()) {
@@ -39,49 +47,56 @@ public class SiteService {
         if (pool == null || pool.isShutdown()) {
             pool = new ForkJoinPool();
         }
+    }
 
-        pool.submit(() -> {
-            sitesList.getSites().parallelStream().forEach(site -> {
-                if (stopRequested.get()) {
-                    System.out.println("Stopping site processing...");
-                    return;
+    private void processSite(Site site) {
+        if (stopRequested.get()) {
+            System.out.println("Stopping site processing...");
+            return;
+        }
+
+        String siteUrl = site.getUrl();
+        System.out.println("Processing site: " + siteUrl);
+
+        Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
+        links.forEach(this::processLink);
+    }
+
+    private void processLink(String link) {
+        if (stopRequested.get()) {
+            System.out.println("Stopping link processing...");
+            return;
+        }
+
+        handlePause();
+
+        try {
+            Thread.sleep(500); // Задержка 500 мс
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            System.out.println("Thread interrupted while sleeping.");
+        }
+
+        System.out.println("Processing link: " + link);
+    }
+
+    private void handlePause() {
+        while (paused.get()) {
+            try {
+                synchronized (paused) {
+                    paused.wait();
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Thread interrupted while waiting.");
+            }
+        }
+    }
 
-                String siteUrl = site.getUrl();
-                System.out.println("Processing site: " + siteUrl);
-
-                // Передаем user-agent и referrer в LinkExtractor
-                Set<String> links = LinkExtractor.getLinks(siteUrl, siteUrl, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
-                links.forEach(link -> {
-                    if (stopRequested.get()) {
-                        System.out.println("Stopping link processing...");
-                        return;
-                    }
-
-                    while (paused.get()) {
-                        try {
-                            synchronized (paused) {
-                                paused.wait();
-                            }
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            System.out.println("Thread interrupted while waiting.");
-                        }
-                    }
-
-                    try {
-                        Thread.sleep(500); // Задержка 500 мс
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        System.out.println("Thread interrupted while sleeping.");
-                    }
-
-                    System.out.println("Processing link: " + link);
-                });
-            });
-        }).join();
-
-        pool.shutdown();
+    private void shutdownPool() {
+        if (pool != null && !pool.isShutdown()) {
+            pool.shutdown();
+        }
     }
 
     public void stopProcessing() {
