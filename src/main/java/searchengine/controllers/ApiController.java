@@ -34,7 +34,7 @@ public class ApiController {
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
-        siteService.pauseProcessing();
+        siteService.stopProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
 }

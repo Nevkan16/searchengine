@@ -11,6 +11,7 @@ import searchengine.task.LinkExtractor;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +40,11 @@ public class SiteService {
             }
         }
 
+        if (stopRequested.get()) {
+            System.out.println("Processing was stopped. Restarting...");
+            stopRequested.set(false); // Сброс флага остановки, чтобы процесс можно было продолжить
+        }
+
         initializeProcessing();
 
         isRunning.set(true); // Устанавливаем флаг, что процесс запущен
@@ -49,6 +55,10 @@ public class SiteService {
 
         shutdownPool();
         isRunning.set(false); // После завершения процесса сбрасываем флаг
+    }
+
+    public void stopPool() {
+        pool.shutdownNow();
     }
 
     private void initializeProcessing() {
@@ -78,7 +88,6 @@ public class SiteService {
 
     private void processLink(String link) {
         if (stopRequested.get()) {
-            System.out.println("Stopping link processing...");
             return;
         }
 
