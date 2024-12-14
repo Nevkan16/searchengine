@@ -8,10 +8,12 @@ import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.task.LinkExtractor;
 
-import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static searchengine.task.LinkExtractor.getValidSites;
 
 @Service
 @RequiredArgsConstructor
@@ -23,41 +25,8 @@ public class SiteService {
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private ForkJoinPool pool;
 
-    // Новый список валидных сайтов
-    private final Set<Site> validSites = new HashSet<>();
-
-    // Метод для проверки валидности сайтов
-    private void validateSites() {
-        validSites.clear();  // Очищаем список перед проверкой
-
-        sitesList.getSites().forEach(site -> {
-            String siteUrl = site.getUrl();
-            if (isValidSite(siteUrl)) {
-                validSites.add(site);
-            }
-        });
-    }
-
     public Set<String> extractedLinks(String url) {
         return LinkExtractor.getLinks(url, url, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
-    }
-
-    public boolean isValidSite(String siteUrl) {
-        try {
-            // Проверяем ссылки
-            Set<String> links = extractedLinks(siteUrl);
-            if (links.isEmpty()) {
-                System.out.println("Ссылки не найдены на сайте: " + siteUrl);
-                return false; // Если ссылок нет, сайт невалиден
-            }
-
-            System.out.println("Сайт валиден: " + siteUrl);
-            return true; // Ссылки найдены, сайт валиден
-
-        } catch (Exception e) {
-            System.out.println("Ошибка при проверке сайта: " + siteUrl + " - " + e.getMessage());
-            return false; // Если произошла ошибка, сайт невалиден
-        }
     }
 
     @Async
@@ -76,11 +45,11 @@ public class SiteService {
 
         isRunning.set(true); // Устанавливаем флаг, что процесс запущен
 
-        // Проверка валидности сайтов перед обработкой ссылок
-        validateSites();
+        // Используем новый метод для получения валидных сайтов
+        List<Site> validSitesList = getValidSites(sitesList);
 
         // Параллельная обработка валидных сайтов
-        validSites.parallelStream().forEach(this::processSite);  // Используем только валидные сайты
+        validSitesList.parallelStream().forEach(this::processSite);  // Используем только валидные сайты
 
         shutdownPool();
         isRunning.set(false); // После завершения процесса сбрасываем флаг
