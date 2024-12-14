@@ -20,16 +20,11 @@ public class SiteService {
     private final SitesList sitesList;
     private final FakeConfig fakeConfig;
     private final AtomicBoolean stopRequested = new AtomicBoolean(false);
-    private final AtomicBoolean paused = new AtomicBoolean(false);
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private ForkJoinPool pool;
 
     // Новый список валидных сайтов
     private final Set<Site> validSites = new HashSet<>();
-
-    public void getSiteList() {
-        sitesList.getSites().forEach(site -> System.out.println(site.getUrl()));
-    }
 
     // Метод для проверки валидности сайтов
     private void validateSites() {
@@ -68,13 +63,8 @@ public class SiteService {
     @Async
     public void processSiteLinks() {
         if (isRunning.get()) {
-            if (paused.get()) {
-                System.out.println("Processing is paused. Resuming...");
-                resumeProcessing(); // Если процесс на паузе, возобновляем его
-            } else {
-                System.out.println("Processing is already running. Returning...");
-                return; // Если процесс уже выполняется, выходим
-            }
+            System.out.println("Processing is already running. Returning...");
+            return; // Если процесс уже выполняется, выходим
         }
 
         if (stopRequested.get()) {
@@ -96,17 +86,8 @@ public class SiteService {
         isRunning.set(false); // После завершения процесса сбрасываем флаг
     }
 
-
-    public void stopPool() {
-        pool.shutdownNow();
-    }
-
     private void initializeProcessing() {
         stopRequested.set(false);
-
-        if (paused.get()) {
-            resumeProcessing();
-        }
 
         if (pool == null || pool.isShutdown()) {
             pool = new ForkJoinPool();
@@ -131,8 +112,6 @@ public class SiteService {
             return;
         }
 
-        handlePause();
-
         try {
             Thread.sleep(500); // Задержка 500 мс
         } catch (InterruptedException e) {
@@ -141,19 +120,6 @@ public class SiteService {
         }
 
         System.out.println("Processing link: " + link);
-    }
-
-    private void handlePause() {
-        while (paused.get()) {
-            try {
-                synchronized (paused) {
-                    paused.wait();
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.out.println("Thread interrupted while waiting.");
-            }
-        }
     }
 
     private void shutdownPool() {
@@ -168,19 +134,6 @@ public class SiteService {
             pool.shutdownNow();
             System.out.println("Processing stopped.");
         }
-    }
-
-    public void pauseProcessing() {
-        paused.set(true);
-        System.out.println("Processing paused.");
-    }
-
-    public void resumeProcessing() {
-        synchronized (paused) {
-            paused.set(false);
-            paused.notifyAll();
-        }
-        System.out.println("Processing resumed.");
     }
 
     public boolean isRunning() {
