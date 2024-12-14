@@ -10,10 +10,7 @@ import searchengine.config.SitesList;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class LinkExtractor {
 
@@ -57,6 +54,9 @@ public class LinkExtractor {
 
     // Метод для проверки валидности ссылки
     public static boolean isValidLink(String linkHref, String baseDomain) {
+        Set<String> INVALID_EXTENSIONS = Set.of(
+                ".pdf", ".jpg", ".png", ".zip", ".docx", ".xlsx", ".gif", ".mp4", ".mp3", ".php", ".jpeg"
+        );
         try {
             URI uri = new URI(linkHref);
             String linkDomain = uri.getHost();
@@ -69,7 +69,9 @@ public class LinkExtractor {
                 return false;
             }
 
-            if (linkDomain == null) return true;
+            if (linkDomain == null) {
+                return true;
+            }
 
             if (!normalizedBaseDomain.equals(normalizedLinkDomain)) {
                 return false;
@@ -80,8 +82,15 @@ public class LinkExtractor {
             }
 
             String path = uri.getPath();
-            return path == null || (!path.endsWith(".pdf") && !path.endsWith(".jpg") &&
-                    !path.endsWith(".png") && !path.endsWith(".zip"));
+            if (path != null) {
+                String lowerCasePath = path.toLowerCase(Locale.ROOT);
+                for (String ext : INVALID_EXTENSIONS) {
+                    if (lowerCasePath.endsWith(ext)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
 
         } catch (URISyntaxException e) {
             return false;
