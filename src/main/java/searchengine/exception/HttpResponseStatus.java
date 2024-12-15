@@ -35,5 +35,14 @@ public enum HttpResponseStatus {
     public String getMessage() {
         return message;
     }
+
+    public static HttpResponseStatus fromCode(int code) {
+        for (HttpResponseStatus status : values()) {
+            if (status.getCode() == code) {
+                return status;
+            }
+        }
+        return null;
+    }
 }
 

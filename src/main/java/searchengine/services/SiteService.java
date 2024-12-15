@@ -6,12 +6,17 @@ import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
+import searchengine.model.PageEntity;
+import searchengine.model.SiteEntity;
+import searchengine.repository.PageRepository;
+import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -30,6 +35,8 @@ public class SiteService {
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -144,6 +151,7 @@ public class SiteService {
         System.out.println("Total valid sites: " + validSites.size());
         return validSites;
     }
+
     public boolean isIndexing() {
         return isProcessing.get();
     }

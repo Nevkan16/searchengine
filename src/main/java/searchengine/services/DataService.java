@@ -1,16 +1,19 @@
 package searchengine.services;
 
+import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
+import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.time.LocalDateTime;
 
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
 public class DataService {
@@ -26,6 +29,18 @@ public class DataService {
 
     @Autowired
     private SitesList sitesList;
+
+    public void createSiteRecord(Site site) {
+        SiteEntity siteEntity = new SiteEntity();
+        siteEntity.setUrl(site.getUrl());
+        siteEntity.setName(site.getName());
+        siteEntity.setStatus(SiteEntity.Status.INDEXING);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteEntity.setLastError(null);
+
+        siteRepository.save(siteEntity);
+    }
+
 
     @Transactional // Spring оборачивает в транзакцию, Атомарность (либо все либо ничего), если искл то откатывает изменения, подерживает работу с субд
     public void deleteSiteData() {
@@ -60,6 +75,42 @@ public class DataService {
             System.out.println("Автоинкремент сброшен для таблицы: " + tableName);
         } catch (Exception e) {
             System.out.println("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
+        }
+    }
+
+    private void savePageToDb(String linkHref, Document doc) {
+        // Получаем или создаём сущность PageEntity
+        PageEntity pageEntity = new PageEntity();
+        pageEntity.setPath(linkHref);
+        pageEntity.setContent(doc.html()); // или обработанный контент
+        pageEntity.setCode(200); // Код ответа, возможно, стоит передавать как параметр
+
+        // Проверяем на дублирование в базе
+        if (!pageRepository.existsByPath(linkHref)) {
+            pageRepository.save(pageEntity);
+        }
+    }
+
+    private void updateSiteStatusTime(SiteEntity siteEntity) {
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteRepository.save(siteEntity);
+    }
+
+    public void finishIndexing(SiteEntity siteEntity, boolean isSuccess) {
+        if (isSuccess) {
+            siteEntity.setStatus(SiteEntity.Status.INDEXED);
+        } else {
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+        }
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteRepository.save(siteEntity);
+    }
+
+    public void handleManualStop() {
+        for (SiteEntity siteEntity : siteRepository.findByStatus(SiteEntity.Status.INDEXING)) {
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setLastError("Индексация остановлена пользователем");
+            siteRepository.save(siteEntity);
         }
     }
 }
