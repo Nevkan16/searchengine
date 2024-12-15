@@ -78,7 +78,7 @@ public class DataService {
         }
     }
 
-    private void savePageToDb(String linkHref, Document doc) {
+    void savePageToDb(String linkHref, Document doc) {
         // Получаем или создаём сущность PageEntity
         PageEntity pageEntity = new PageEntity();
         pageEntity.setPath(linkHref);
@@ -91,7 +91,7 @@ public class DataService {
         }
     }
 
-    private void updateSiteStatusTime(SiteEntity siteEntity) {
+    void updateSiteStatusTime(SiteEntity siteEntity) {
         siteEntity.setStatusTime(LocalDateTime.now());
         siteRepository.save(siteEntity);
     }
