@@ -32,6 +32,7 @@ public class LinkTask extends RecursiveTask<Void> {
     @Override
     protected Void compute() {
         if (depth > maxDepth || stopProcessing.get()) {
+            System.out.println("test");
             return null;
         }
 

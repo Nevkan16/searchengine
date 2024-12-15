@@ -14,7 +14,10 @@ import org.jsoup.nodes.Document;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -25,6 +28,7 @@ public class SiteService {
     private ForkJoinPool forkJoinPool = new ForkJoinPool(); // Создаём пул потоков
     private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -68,10 +72,25 @@ public class SiteService {
             } catch (Exception e) {
                 System.out.println("Error during indexing: " + e.getMessage());
             } finally {
-                forkJoinPool.shutdown();
                 isProcessing.set(false); // Индексация завершена
             }
         });
+
+        scheduleStopProcessing(); // Планируем автоматическую остановку через 10 секунд
+    }
+
+    private void scheduleStopProcessing() {
+        int stopDelaySeconds = 10; // Время задержки в секундах
+        scheduler.schedule(() -> {
+            if (isProcessing.get()) {
+                System.out.println("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
+                LinkTask.stopProcessing();
+                if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
+                    forkJoinPool.shutdownNow();
+                }
+                isProcessing.set(false);
+            }
+        }, stopDelaySeconds, TimeUnit.SECONDS);
     }
 
     public synchronized void stopProcessing() {
