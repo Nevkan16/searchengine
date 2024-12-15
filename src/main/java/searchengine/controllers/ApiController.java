@@ -3,7 +3,6 @@ package searchengine.controllers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
@@ -59,10 +58,19 @@ public class ApiController {
     @GetMapping("/deleteSiteData")
     public ResponseEntity<ApiResponse> deleteSiteData() {
         try {
-            testService.deleteSiteData("https://www.lenta.ru");
+            dataService.deleteSiteData();
             return ResponseEntity.ok(new ApiResponse(true, "Данные сайта успешно удалены"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при удалении фиктивных данных"));
+        }
+    }
+    @GetMapping("/testService")
+    public ResponseEntity<ApiResponse> someRequest() {
+        try {
+            testService.testingMethod();
+            return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
         }
     }
 }

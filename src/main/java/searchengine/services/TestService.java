@@ -1,38 +1,23 @@
 package searchengine.services;
 
 import org.springframework.stereotype.Service;
+import searchengine.config.Site;
+import searchengine.config.SitesList;
 import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
-import java.util.Optional;
-
 @Service
 public class TestService {
 
-    private final DataService dataService;
-    private final DummyDataService dummyDataService;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
+    private final SitesList sitesList;
 
-    public TestService(DataService dataService, DummyDataService dummyDataService, SiteRepository siteRepository, PageRepository pageRepository) {
-        this.dataService = dataService;
-        this.dummyDataService = dummyDataService;
+    public TestService(SiteRepository siteRepository, PageRepository pageRepository, SitesList sitesList) {
         this.siteRepository = siteRepository;
         this.pageRepository = pageRepository;
-    }
-
-    public void testDummyDataMethods() {
-        // Добавляем фиктивные данные
-        dummyDataService.addDummyData();
-
-        // Удаляем данные для сайта https://www.lenta.ru
-        boolean result = dataService.deleteSiteData("https://www.lenta.ru");
-        if (result) {
-            System.out.println("Данные сайта https://www.lenta.ru удалены.");
-        } else {
-            System.out.println("Сайт https://www.lenta.ru не найден.");
-        }
+        this.sitesList = sitesList;
     }
 
     public void deleteSiteData(String url) {
@@ -45,6 +30,38 @@ public class TestService {
         }
     }
 
+    public void testingMethod() {
+        for (Site list : sitesList.getSites()) {
+            System.out.println(list.getUrl());
+        }
+        for (Site siteConfig : sitesList.getSites()) {
+            System.out.println("Проверяем сайт: " + siteConfig.getUrl());
 
+            // Проверяем, существует ли сайт в базе данных
+            SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl());
+            if (siteEntity != null) {
+                System.out.println("Найден сайт в БД: " + siteConfig.getUrl() + ". Удаляем его.");
+
+                try {
+                    // Удаляем сам сайт
+                    siteRepository.delete(siteEntity);
+                    System.out.println("Сайт удален: " + siteConfig.getUrl());
+                } catch (Exception e) {
+                    System.out.println("Ошибка с удалением сайта: " + siteConfig.getUrl());
+                    continue;
+                }
+
+                try {
+                    // Удаляем страницы, связанные с этим сайтом
+                    pageRepository.deleteBySite(siteEntity);
+                    System.out.println("Страницы удалены для сайта: " + siteConfig.getUrl());
+                } catch (Exception e) {
+                    System.out.println("Ошибка с удалением страниц для сайта: " + siteConfig.getUrl());
+                }
+            } else {
+                System.out.println("Сайт не найден в БД: " + siteConfig.getUrl());
+            }
+        }
+    }
 }
 
