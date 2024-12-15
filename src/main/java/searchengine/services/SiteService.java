@@ -29,6 +29,7 @@ public class SiteService {
     private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -37,6 +38,7 @@ public class SiteService {
         }
 
         isProcessing.set(true); // Устанавливаем состояние "индексация запущена"
+        manuallyStopped = false; // Сбрасываем флаг ручной остановки
         LinkTask.stopProcessing(); // Убедимся, что старые задачи остановлены
         LinkTask.resetStopFlag();  // Сбрасываем флаг остановки для новых задач
 
@@ -72,6 +74,11 @@ public class SiteService {
             } catch (Exception e) {
                 System.out.println("Error during indexing: " + e.getMessage());
             } finally {
+                if (!manuallyStopped) {
+                    System.out.println("Indexing completed automatically.");
+                } else {
+                    System.out.println("Indexing stopped by user.");
+                }
                 isProcessing.set(false); // Индексация завершена
             }
         });
@@ -80,9 +87,9 @@ public class SiteService {
     }
 
     private void scheduleStopProcessing() {
-        int stopDelaySeconds = 10; // Время задержки в секундах
+        int stopDelaySeconds = 15; // Время задержки в секундах
         scheduler.schedule(() -> {
-            if (isProcessing.get()) {
+            if (isProcessing.get() && !manuallyStopped) {
                 System.out.println("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
                 LinkTask.stopProcessing();
                 if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
@@ -99,7 +106,8 @@ public class SiteService {
             return;
         }
 
-        System.out.println("Stopping processing...");
+        manuallyStopped = true; // Отмечаем, что остановка была вызвана вручную
+        System.out.println("Stopping processing manually...");
         LinkTask.stopProcessing();
 
         if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
