@@ -1,113 +1,176 @@
-//package searchengine.task;
-//
-//import lombok.AllArgsConstructor;
-//import lombok.Getter;
-//import lombok.Setter;
-//import org.jsoup.Jsoup;
-//import org.jsoup.nodes.Document;
-//import org.jsoup.nodes.Element;
-//import org.jsoup.select.Elements;
-//import searchengine.model.SiteEntity;
-//import searchengine.services.PageService;
-//
-//import java.io.IOException;
-//import java.util.Collections;
-//import java.util.HashSet;
-//import java.util.Set;
-//import java.util.concurrent.ConcurrentHashMap;
-//import java.util.concurrent.RecursiveTask;
-//import java.util.concurrent.atomic.AtomicBoolean;
-//
-//@Getter
-//@Setter
-//@AllArgsConstructor
-//public class LinkTask extends RecursiveTask<Void> {
-//
-//    private static final Set<String> visitedLinks = Collections.newSetFromMap(new ConcurrentHashMap<>());
-//    private static final AtomicBoolean stopRequest = new AtomicBoolean(false);
-//    private Document doc;
-//    private String baseUrl;
-//    private int depth;
-//    private int maxDepth;
-//    private PageService pageService;
-//    private SiteEntity site;
-//
-//    @Override
-//    protected Void compute() {
-//        if (depth > maxDepth || stopRequest.get()) {
-//            return null;
-//        }
-//
-//        // Получаем все ссылки на странице
-//        Elements links = doc.select("a[href]");
-//        Set<LinkTask> subTasks = new HashSet<>();
-//
-//        // Обрабатываем все ссылки на странице
-//        processLinks(links, subTasks);
-//
-//        // Если есть подзадачи, выполняем их
-//        if (stopRequest.get()) {
-//            return null;
-//        }
-//
-//        // Запускаем все подзадачи
-//        executeSubTasks(subTasks);
-//
-//        return null;
-//    }
-//
-//    // Метод для обработки ссылок на странице
-//    private void processLinks(Elements links, Set<LinkTask> subTasks) {
-//        for (Element link : links) {
-//            if (stopRequest.get()) {
-//                return;
-//            }
-//
-//            String linkHref = link.attr("abs:href");
-//
-//            if (LinkValidator.isValid(linkHref, baseUrl) && visitedLinks.add(linkHref)) {
-//                pageService.savePage(linkHref, baseUrl, site);
-//
-//                try {
-//                    Document childDoc = Jsoup.connect(linkHref).get();
-//                    LinkTask subTask = createSubTask(childDoc);
-//                    subTasks.add(subTask);
-//                } catch (IOException e) {
-//                    System.err.println("Error loading link: " + linkHref);
-//                }
-//            }
-//        }
-//    }
-//
-//    // Метод для создания подзадачи для обхода ссылки
-//    private LinkTask createSubTask(Document childDoc) {
-//        return new LinkTask(childDoc, baseUrl, depth + 1, maxDepth, pageService, site);
-//    }
-//
-//    // Метод для запуска всех подзадач
-//    private void executeSubTasks(Set<LinkTask> subTasks) {
-//        for (LinkTask subTask : subTasks) {
-//            subTask.fork();  // Запуск подзадачи в отдельном потоке
-//        }
-//
-//        // Ожидание завершения всех подзадач
-//        for (LinkTask subTask : subTasks) {
-//            subTask.join();  // Ждем завершения каждой подзадачи
-//        }
-//    }
-//
-//    // Метод для запроса остановки
-//    public static void requestStop() {
-//        stopRequest.set(true);
-//    }
-//
-//    // Проверка запроса на остановку
-//    public static boolean getStopRequest() {
-//        return stopRequest.get();
-//    }
-//
-//    // Сброс флага остановки
-//    public static void resetStopFlag() {
-//        stopRequest.set(false);
-//    }
-//}
+package searchengine.task;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import searchengine.config.FakeConfig;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+@Slf4j
+@RequiredArgsConstructor
+public class LinkTask extends RecursiveTask<Void> {
+    private static final Set<String> visitedLinks = Collections.synchronizedSet(new HashSet<>());
+    private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
+    private final Document doc;
+    private final String baseUrl;
+    private final int depth;
+    private final int maxDepth;
+    private final FakeConfig fakeConfig; // Добавлен FakeConfig
+
+    @Override
+    protected Void compute() {
+        if (depth > maxDepth || stopProcessing.get()) {
+            return null;
+        }
+
+        try {
+            Set<LinkTask> subTasks = processLinks();
+            if (!stopProcessing.get()) {
+                invokeAll(subTasks);
+            }
+        } catch (URISyntaxException e) {
+            log.error("Invalid URI: " + baseUrl, e);
+        }
+
+        return null;
+    }
+
+    private Set<LinkTask> processLinks() throws URISyntaxException {
+        if (stopProcessing.get()) return Collections.emptySet();
+
+        URI uri = new URI(baseUrl);
+        String domain = uri.getHost();
+
+        Elements links = extractLinks();
+        Set<LinkTask> subTasks = new HashSet<>();
+
+        for (Element link : links) {
+            if (stopProcessing.get()) break;
+
+            String linkHref = link.attr("abs:href");
+
+            if (shouldVisitLink(linkHref, domain)) {
+                addVisitedLink(linkHref);
+                logLinkProcessing(linkHref);
+
+                try {
+                    Document childDoc = loadDocument(linkHref);
+                    LinkTask subTask = createSubTask(childDoc, linkHref);
+                    subTasks.add(subTask);
+                } catch (IOException e) {
+                    log.error("Failed to load: " + linkHref, e);
+                }
+            }
+        }
+
+        return subTasks;
+    }
+
+    public static void resetStopFlag() {
+        stopProcessing.set(false);
+    }
+
+    public static void stopProcessing() {
+        stopProcessing.set(true);
+    }
+
+    private Elements extractLinks() {
+        return doc.select("a[href]");
+    }
+
+    private boolean shouldVisitLink(String linkHref, String domain) {
+        return isValidLink(linkHref, domain) && !visitedLinks.contains(linkHref);
+    }
+
+    private void addVisitedLink(String linkHref) {
+        synchronized (visitedLinks) {
+            visitedLinks.add(linkHref);
+        }
+    }
+
+    private void logLinkProcessing(String linkHref) {
+        System.out.println("Processing: " + linkHref);
+    }
+
+    private Document loadDocument(String linkHref) throws IOException {
+        try {
+            // Задержка перед запросом
+            Thread.sleep(1000);
+        } catch (InterruptedException ignored) {
+        }
+        return Jsoup.connect(linkHref)
+                .userAgent(fakeConfig.getUserAgent()) // Использование user-agent из FakeConfig
+                .referrer(fakeConfig.getReferrer())   // Использование referrer из FakeConfig
+                .get();
+    }
+
+
+    private LinkTask createSubTask(Document childDoc, String linkHref) {
+        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig);
+    }
+
+    public static boolean isValidLink(String linkHref, String baseDomain) {
+        Set<String> INVALID_EXTENSIONS = Set.of(
+                ".pdf", ".jpg", ".png", ".zip", ".docx", ".xlsx", ".gif", ".mp4", ".mp3", ".php", ".jpeg"
+        );
+        try {
+            URI uri = new URI(linkHref);
+            String linkDomain = uri.getHost();
+
+            String normalizedBaseDomain = normalizeDomain(baseDomain);
+            String normalizedLinkDomain = normalizeDomain(linkDomain);
+
+            String scheme = uri.getScheme();
+            if (scheme == null || (!scheme.equals("http") && !scheme.equals("https"))) {
+                return false;
+            }
+
+            if (linkDomain == null) {
+                return true;
+            }
+
+            if (!normalizedBaseDomain.equals(normalizedLinkDomain)) {
+                return false;
+            }
+
+            if (uri.getFragment() != null || linkHref.isEmpty()) {
+                return false;
+            }
+
+            String path = uri.getPath();
+            if (path != null) {
+                String lowerCasePath = path.toLowerCase(Locale.ROOT);
+                for (String ext : INVALID_EXTENSIONS) {
+                    if (lowerCasePath.endsWith(ext)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+
+    private static String normalizeDomain(String domain) {
+        if (domain == null) return null;
+        String[] parts = domain.split("\\.");
+        if (parts.length > 2) {
+            return parts[parts.length - 2] + "." + parts[parts.length - 1];
+        }
+        return domain;
+    }
+}

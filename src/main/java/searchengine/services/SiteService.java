@@ -1,111 +1,119 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.scheduling.annotation.Async;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.task.LinkExtractor;
+import searchengine.task.LinkTask;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static searchengine.task.LinkExtractor.getValidSites;
 
 @Service
 @RequiredArgsConstructor
 public class SiteService {
 
     private final SitesList sitesList;
+    private ForkJoinPool forkJoinPool = new ForkJoinPool(); // Создаём пул потоков
+    private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
-    private final AtomicBoolean stopRequested = new AtomicBoolean(false);
-    private final AtomicBoolean isRunning = new AtomicBoolean(false);
-    private ForkJoinPool pool;
 
-    public Set<String> extractedLinks(String url) {
-        return LinkExtractor.getLinks(url, url, fakeConfig.getUserAgent(), fakeConfig.getReferrer());
-    }
-
-    @Async
-    public void processSiteLinks() {
-        if (isRunning.get()) {
-            System.out.println("Processing is already running. Returning...");
-            return; // Если процесс уже выполняется, выходим
+    public void processSites() {
+        if (isProcessing.get()) {
+            System.out.println("Processing is already running!");
+            return; // Если процесс уже запущен, выходим
         }
 
-        if (stopRequested.get()) {
-            System.out.println("Processing was stopped. Restarting...");
-            stopRequested.set(false); // Сброс флага остановки, чтобы процесс можно было продолжить
+        isProcessing.set(true); // Устанавливаем состояние "индексация запущена"
+        LinkTask.stopProcessing(); // Убедимся, что старые задачи остановлены
+        LinkTask.resetStopFlag();  // Сбрасываем флаг остановки для новых задач
+
+        if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
+            forkJoinPool.shutdown(); // Останавливаем старый пул потоков, если он не завершён
         }
+        forkJoinPool = new ForkJoinPool(); // Создаём новый пул потоков
 
-        initializeProcessing();
+        forkJoinPool.execute(() -> {
+            System.out.println("Indexing started...");
 
-        isRunning.set(true); // Устанавливаем флаг, что процесс запущен
+            try {
+                List<Site> sites = getValidSites();
+                List<LinkTask> tasks = new ArrayList<>();
 
-        // Используем новый метод для получения валидных сайтов
-        List<Site> validSitesList = getValidSites(sitesList);
+                for (Site site : sites) {
+                    String siteUrl = site.getUrl();
+                    try {
+                        Document doc = Jsoup.connect(siteUrl).get();
+                        LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig);
+                        tasks.add(linkTask);
+                        forkJoinPool.execute(linkTask);
+                    } catch (IOException e) {
+                        System.out.println("Error processing site: " + siteUrl);
+                    }
+                }
 
-        // Параллельная обработка валидных сайтов
-        validSitesList.parallelStream().forEach(this::processSite);  // Используем только валидные сайты
+                for (LinkTask task : tasks) {
+                    task.join();
+                }
 
-        shutdownPool();
-        isRunning.set(false); // После завершения процесса сбрасываем флаг
+                System.out.println("Indexing completed.");
+            } catch (Exception e) {
+                System.out.println("Error during indexing: " + e.getMessage());
+            } finally {
+                forkJoinPool.shutdown();
+                isProcessing.set(false); // Индексация завершена
+            }
+        });
     }
 
-    private void initializeProcessing() {
-        stopRequested.set(false);
-
-        if (pool == null || pool.isShutdown()) {
-            pool = new ForkJoinPool();
-        }
-    }
-
-    private void processSite(Site site) {
-        if (stopRequested.get()) {
-            System.out.println("Stopping site processing...");
+    public synchronized void stopProcessing() {
+        if (!isProcessing.get()) {
+            System.out.println("Processing is not running!");
             return;
         }
 
-        String siteUrl = site.getUrl();
-        System.out.println("Processing site: " + siteUrl);
+        System.out.println("Stopping processing...");
+        LinkTask.stopProcessing();
 
-        Set<String> links = extractedLinks(siteUrl);
-        links.forEach(this::processLink);
-    }
-
-    private void processLink(String link) {
-        if (stopRequested.get()) {
-            return;
+        if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
+            forkJoinPool.shutdownNow(); // Останавливаем пул потоков
         }
 
-        try {
-            Thread.sleep(500); // Задержка 500 мс
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.out.println("Thread interrupted while sleeping.");
-        }
-
-        System.out.println("Processing link: " + link);
+        isProcessing.set(false); // Устанавливаем состояние "индексация остановлена"
     }
 
-    private void shutdownPool() {
-        if (pool != null && !pool.isShutdown()) {
-            pool.shutdown();
-        }
-    }
 
-    public void stopProcessing() {
-        if (pool != null && !pool.isShutdown()) {
-            stopRequested.set(true);
-            pool.shutdownNow();
-            System.out.println("Processing stopped.");
-        }
-    }
+    public List<Site> getValidSites() {
+        List<Site> validSites = new ArrayList<>();
 
-    public boolean isRunning() {
-        return isRunning.get();
+        for (Site site : sitesList.getSites()) {
+            String siteUrl = site.getUrl();
+            System.out.println("Checking site: " + siteUrl);
+
+            try {
+                Document doc = Jsoup.connect(siteUrl).get();
+                Elements links = doc.select("a[href]");
+
+                if (!links.isEmpty()) {
+                    validSites.add(site);
+                    System.out.println("Site is valid: " + siteUrl);
+                } else {
+                    System.out.println("Site is invalid: " + siteUrl + " (No links found)");
+                }
+            } catch (IOException e) {
+                System.out.println("Error processing site: " + siteUrl + " (" + e.getMessage() + ")");
+            }
+        }
+
+        System.out.println("Total valid sites: " + validSites.size());
+        return validSites;
     }
 }
