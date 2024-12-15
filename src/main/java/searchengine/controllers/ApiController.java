@@ -3,12 +3,12 @@ package searchengine.controllers;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.services.SiteService;
-import searchengine.services.StatisticsService;
+import searchengine.services.*;
 
 @RequiredArgsConstructor
 @RestController
@@ -17,6 +17,9 @@ public class ApiController {
 
     private final StatisticsService statisticsService;
     private final SiteService siteService;
+    private final DummyDataService dummyDataService;
+    private final DataService dataService;
+    private final TestService testService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -39,5 +42,27 @@ public class ApiController {
         }
         siteService.stopProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
+    }
+
+    // Добавление фиктивных данных
+    @GetMapping("/addDummyData")
+    public ResponseEntity<ApiResponse> addDummyData() {
+        try {
+            dummyDataService.addDummyData();
+            return ResponseEntity.ok(new ApiResponse(true, "Фиктивные данные успешно добавлены"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при добавлении фиктивных данных"));
+        }
+    }
+
+    // Удаление данных по URL сайта
+    @GetMapping("/deleteSiteData")
+    public ResponseEntity<ApiResponse> deleteSiteData() {
+        try {
+            testService.deleteSiteData("https://www.lenta.ru");
+            return ResponseEntity.ok(new ApiResponse(true, "Данные сайта успешно удалены"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при удалении фиктивных данных"));
+        }
     }
 }
