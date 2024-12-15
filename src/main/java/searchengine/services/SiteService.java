@@ -83,7 +83,7 @@ public class SiteService {
             }
         });
 
-        scheduleStopProcessing(); // Планируем автоматическую остановку через 10 секунд
+        scheduleStopProcessing();
     }
 
     private void scheduleStopProcessing() {
