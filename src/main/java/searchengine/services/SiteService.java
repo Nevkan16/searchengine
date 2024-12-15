@@ -29,7 +29,7 @@ public class SiteService {
     public void processSites() {
         if (isProcessing.get()) {
             System.out.println("Processing is already running!");
-            return; // Если процесс уже запущен, выходим
+            return;
         }
 
         isProcessing.set(true); // Устанавливаем состояние "индексация запущена"
@@ -99,7 +99,7 @@ public class SiteService {
             System.out.println("Checking site: " + siteUrl);
 
             try {
-                Document doc = Jsoup.connect(siteUrl).get();
+                Document doc = Jsoup.connect(siteUrl).timeout(3000).get();
                 Elements links = doc.select("a[href]");
 
                 if (!links.isEmpty()) {
@@ -115,5 +115,8 @@ public class SiteService {
 
         System.out.println("Total valid sites: " + validSites.size());
         return validSites;
+    }
+    public boolean isIndexing() {
+        return isProcessing.get();
     }
 }

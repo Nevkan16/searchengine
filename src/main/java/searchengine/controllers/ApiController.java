@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.services.PageService;
 import searchengine.services.SiteService;
 import searchengine.services.StatisticsService;
 
@@ -26,13 +25,18 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
-            siteService.processSites();  // Теперь этот метод выполняется асинхронно
+        if (siteService.isIndexing()) {
+            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
+        }
+        siteService.processSites();  // Теперь этот метод выполняется асинхронно
         return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
-
+        if (!siteService.isIndexing()) {
+            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация не запущена"));
+        }
         siteService.stopProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
