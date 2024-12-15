@@ -118,7 +118,8 @@ public class SiteService {
             System.out.println("Checking site: " + siteUrl);
 
             try {
-                Document doc = Jsoup.connect(siteUrl).timeout(3000).get();
+                int timeOutInt = 3000;
+                Document doc = Jsoup.connect(siteUrl).timeout(timeOutInt).get();
                 Elements links = doc.select("a[href]");
 
                 if (!links.isEmpty()) {
