@@ -12,10 +12,10 @@ import searchengine.repository.SiteRepository;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
-@Service
+@Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
 public class DataService {
 
-    @PersistenceContext
+    @PersistenceContext // внедрение Entity Manager в компоненты приложения
     private EntityManager entityManager;
 
     @Autowired // автоматическое внедрение зависимостей
@@ -27,7 +27,7 @@ public class DataService {
     @Autowired
     private SitesList sitesList;
 
-    @Transactional
+    @Transactional // Spring оборачивает в транзакцию, Атомарность (либо все либо ничего), если искл то откатывает изменения, подерживает работу с субд
     public void deleteSiteData() {
         for (Site siteConfig : sitesList.getSites()) {
             System.out.println("Проверяем сайт: " + siteConfig.getUrl());
