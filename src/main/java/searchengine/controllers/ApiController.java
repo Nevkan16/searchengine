@@ -69,7 +69,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            htmlLoader.showHtml("https://www.lenta.ru");
+            dataService.getAllSites();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));

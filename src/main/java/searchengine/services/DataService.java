@@ -17,11 +17,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
 public class DataService {
@@ -42,20 +38,19 @@ public class DataService {
         List<Site> allSites = sitesList.getSites();
 
         if (allSites == null || allSites.isEmpty()) {
-            System.out.println("Конфигурация сайтов пуста или отсутствует.");
             return Collections.emptyList(); // Возвращаем пустой список, если сайтов нет
         }
 
+        Set<String> uniqueUrls = new HashSet<>(); // Для отслеживания уникальных URL
         List<Site> validSites = new ArrayList<>();
+
         for (Site site : allSites) {
             if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
-//                System.out.println("Найден сайт: " + site.getUrl());
-                validSites.add(site); // Добавляем только корректные сайты
-            } else {
-                System.out.println("Пропускаем некорректный сайт в конфигурации.");
+                if (uniqueUrls.add(site.getUrl())) { // Добавляем только уникальные URL
+                    validSites.add(site);
+                }
             }
         }
-
         return validSites;
     }
 
