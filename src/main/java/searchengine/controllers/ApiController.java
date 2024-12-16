@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
+import searchengine.utils.HtmlLoader;
 
 @RequiredArgsConstructor
 @RestController
@@ -19,6 +20,7 @@ public class ApiController {
     private final DummyDataService dummyDataService;
     private final DataService dataService;
     private final TestService testService;
+    private final HtmlLoader htmlLoader;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -67,7 +69,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            testService.testingMethod();
+            htmlLoader.showHtml("https://www.lenta.ru");
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));

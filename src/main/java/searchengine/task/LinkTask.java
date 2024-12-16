@@ -6,6 +6,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import searchengine.config.FakeConfig;
+import searchengine.utils.HtmlLoader;
 
 import java.io.IOException;
 import java.net.URI;
@@ -47,6 +48,8 @@ public class LinkTask extends RecursiveTask<Void> {
         if (stopProcessing.get()) return new HashSet<>();
 
         Set<LinkTask> subTasks = new HashSet<>();
+        HtmlLoader htmlLoader = new HtmlLoader(fakeConfig);
+
         for (Element link : linkProcessor.extractLinks(doc)) {
             if (stopProcessing.get()) break;
 
@@ -57,9 +60,8 @@ public class LinkTask extends RecursiveTask<Void> {
                 log.info("Processing: {}", linkHref);
 
                 try {
-                    Document childDoc = loadDocument(linkHref);
-                    LinkTask subTask = createSubTask(childDoc, linkHref);
-                    subTasks.add(subTask);
+                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref); // Вызов HtmlLoader
+                    subTasks.add(createSubTask(childDoc, linkHref));
                 } catch (IOException e) {
                     log.error("Failed to load: " + linkHref, e);
                 }
@@ -78,17 +80,6 @@ public class LinkTask extends RecursiveTask<Void> {
         }
     }
 
-    private Document loadDocument(String linkHref) throws IOException {
-        try {
-            Thread.sleep(1000); // Delay before request
-        } catch (InterruptedException ignored) {
-        }
-        return Jsoup.connect(linkHref)
-                .userAgent(fakeConfig.getUserAgent())
-                .referrer(fakeConfig.getReferrer())
-                .get();
-    }
-
     private LinkTask createSubTask(Document childDoc, String linkHref) {
         return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig);
     }
@@ -101,3 +92,4 @@ public class LinkTask extends RecursiveTask<Void> {
         stopProcessing.set(true);
     }
 }
+
