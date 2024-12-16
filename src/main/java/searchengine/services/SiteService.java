@@ -8,13 +8,9 @@ import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.model.SiteEntity;
-import searchengine.repository.PageRepository;
-import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -34,8 +30,6 @@ public class SiteService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
     private final DataService dataService;
-    private final PageRepository pageRepository;
-    private final SiteRepository siteRepository;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -53,7 +47,7 @@ public class SiteService {
         }
         forkJoinPool = new ForkJoinPool(); // Создаём новый пул потоков
         dataService.deleteSiteData(); // Удаляем старые данные
-
+        dataService.createSiteRecord(); // Сохраняем все сайты в бд
         forkJoinPool.execute(() -> {
             System.out.println("Indexing started...");
 
@@ -152,16 +146,6 @@ public class SiteService {
         return validSites;
     }
 
-    public void createSiteRecord(Site site) {
-        SiteEntity siteEntity = new SiteEntity();
-        siteEntity.setUrl(site.getUrl());
-        siteEntity.setName(site.getName());
-        siteEntity.setStatus(SiteEntity.Status.INDEXING);
-        siteEntity.setStatusTime(LocalDateTime.now());
-        siteEntity.setLastError(null);
-
-        siteRepository.save(siteEntity);
-    }
     public boolean isIndexing() {
         return isProcessing.get();
     }

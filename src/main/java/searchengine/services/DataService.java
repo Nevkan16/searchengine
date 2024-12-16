@@ -14,6 +14,8 @@ import searchengine.repository.SiteRepository;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
@@ -31,15 +33,31 @@ public class DataService {
     @Autowired
     private SitesList sitesList;
 
+    public List<Site> getAllSites() {
+        List<Site> allSites = sitesList.getSites();
+
+        if (allSites == null || allSites.isEmpty()) {
+            System.out.println("Конфигурация сайтов пуста или отсутствует.");
+            return Collections.emptyList(); // Возвращаем пустой список, если сайтов нет
+        }
+
+        List<Site> validSites = new ArrayList<>();
+        for (Site site : allSites) {
+            if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
+                System.out.println("Найден сайт: " + site.getUrl());
+                validSites.add(site); // Добавляем только корректные сайты
+            } else {
+                System.out.println("Пропускаем некорректный сайт в конфигурации.");
+            }
+        }
+
+        return validSites;
+    }
+
     @Transactional
     public void deleteSiteData() {
-        List<Site> allSites = sitesList.getSites();
+        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
         for (Site siteConfig : allSites) {
-            if (siteConfig == null || siteConfig.getUrl() == null || siteConfig.getUrl().isEmpty()) {
-                System.out.println("Пропускаем пустой или некорректный сайт в конфигурации.");
-                continue;
-            }
-
             System.out.println("Проверяем сайт: " + siteConfig.getUrl());
             SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl());
 
@@ -60,32 +78,31 @@ public class DataService {
             }
 
             // Создание новой записи
-            createSiteRecord(siteConfig);
             System.out.println("Создана новая запись для сайта: " + siteConfig.getUrl());
         }
     }
 
-    public void createSiteRecord(Site site) {
-        if (site == null || site.getUrl() == null || site.getName() == null) {
-            System.out.println("Ошибка: передан пустой сайт для создания записи.");
-            return;
-        }
+    public void createSiteRecord() {
+        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
 
-        SiteEntity siteEntity = new SiteEntity();
-        siteEntity.setUrl(site.getUrl());
-        siteEntity.setName(site.getName());
-        siteEntity.setStatus(SiteEntity.Status.INDEXING);
-        siteEntity.setStatusTime(LocalDateTime.now());
-        siteEntity.setLastError(null);
+        for (Site site : allSites) {
+            // Создаем объект SiteEntity для записи в базу данных
+            SiteEntity siteEntity = new SiteEntity();
+            siteEntity.setUrl(site.getUrl());
+            siteEntity.setName(site.getName());
+            siteEntity.setStatus(SiteEntity.Status.INDEXING);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteEntity.setLastError(null);
 
-        try {
-            siteRepository.save(siteEntity);
-            System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
-        } catch (Exception e) {
-            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
+            try {
+                // Сохраняем объект в базе данных
+                siteRepository.save(siteEntity);
+                System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
+            } catch (Exception e) {
+                System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
+            }
         }
     }
-
 
     private void resetAutoIncrement(String tableName) {
         try {
