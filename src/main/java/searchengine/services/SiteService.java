@@ -52,7 +52,7 @@ public class SiteService {
         }
         forkJoinPool = new ForkJoinPool(); // Создаём новый пул потоков
         dataService.deleteSiteData(); // Удаляем старые данные
-        dataService.createSiteRecord(); // Сохраняем все сайты в бд
+//        dataService.createSiteRecord(); // Сохраняем все сайты в бд
         forkJoinPool.execute(() -> {
             System.out.println("Indexing started...");
 

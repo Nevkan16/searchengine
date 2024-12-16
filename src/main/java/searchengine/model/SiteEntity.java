@@ -1,5 +1,6 @@
 package searchengine.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +28,7 @@ public class SiteEntity {
     private Status status;
 
     @Column(name = "status_time", nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss", timezone = "Europe/Moscow")
     private LocalDateTime statusTime;
 
     @Column(name = "last_error")

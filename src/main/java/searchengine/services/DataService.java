@@ -17,6 +17,8 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,7 +49,7 @@ public class DataService {
         List<Site> validSites = new ArrayList<>();
         for (Site site : allSites) {
             if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
-                System.out.println("Найден сайт: " + site.getUrl());
+//                System.out.println("Найден сайт: " + site.getUrl());
                 validSites.add(site); // Добавляем только корректные сайты
             } else {
                 System.out.println("Пропускаем некорректный сайт в конфигурации.");
