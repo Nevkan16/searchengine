@@ -1,6 +1,8 @@
 package searchengine.services;
 
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,6 +15,7 @@ import searchengine.repository.SiteRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +59,7 @@ public class DataService {
 
     @Transactional
     public void deleteSiteData() {
+        System.out.println("Удаление старых данных...");
         List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
         for (Site siteConfig : allSites) {
             System.out.println("Проверяем сайт: " + siteConfig.getUrl());
@@ -83,6 +87,7 @@ public class DataService {
     }
 
     public void createSiteRecord() {
+        System.out.println("Создание новых записей о сайте...");
         List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
 
         for (Site site : allSites) {
@@ -110,6 +115,71 @@ public class DataService {
             System.out.println("Автоинкремент сброшен для таблицы: " + tableName);
         } catch (Exception e) {
             System.out.println("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
+        }
+    }
+
+    private String validateSite(String siteUrl) {
+        try {
+            int timeOutInt = 3000;
+            Document doc = Jsoup.connect(siteUrl).timeout(timeOutInt).get();
+            Elements links = doc.select("a[href]");
+
+            if (links.isEmpty()) {
+                return "No links found";
+            }
+            return null; // Сайт валиден
+        } catch (IOException e) {
+            return "Timeout or connection error";
+        }
+    }
+
+    public List<Site> getValidSites() {
+        System.out.println("Проверка сайта на валидность ссылок...");
+        List<Site> validSites = new ArrayList<>();
+
+        for (Site site : sitesList.getSites()) {
+            String siteUrl = site.getUrl();
+            System.out.println("Checking site: " + siteUrl);
+
+            String validationError = validateSite(siteUrl);
+
+            if (validationError == null) {
+                validSites.add(site);
+                System.out.println("Site is valid: " + siteUrl);
+            } else {
+                System.out.println("Site is invalid: " + siteUrl + " (" + validationError + ")");
+            }
+        }
+
+        System.out.println("Total valid sites: " + validSites.size());
+        return validSites;
+    }
+
+    @Transactional
+    public void updateSites() {
+        System.out.println("Обновление данных для сайта с ошибками...");
+        for (Site site : sitesList.getSites()) {
+            String siteUrl = site.getUrl();
+            System.out.println("Checking site in DB: " + siteUrl);
+
+            String validationError = validateSite(siteUrl);
+
+            if (validationError != null) {
+                updateSiteStatusInDb(site, validationError);
+            }
+        }
+    }
+
+    private void updateSiteStatusInDb(Site site, String lastError) {
+        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl());
+        if (siteEntity != null) {
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setLastError(lastError);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteRepository.save(siteEntity);
+            System.out.println("Updated site in DB: " + site.getUrl() + " (Status: " + SiteEntity.Status.FAILED + ", Error: " + lastError + ")");
+        } else {
+            System.out.println("Site not found in DB: " + site.getUrl());
         }
     }
 

@@ -8,9 +8,13 @@ import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
+import searchengine.model.SiteEntity;
+import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
+import javax.transaction.Transactional;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -30,6 +34,7 @@ public class SiteService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
     private final DataService dataService;
+    private final SiteRepository siteRepository;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -52,9 +57,9 @@ public class SiteService {
             System.out.println("Indexing started...");
 
             try {
-                List<Site> sites = getValidSites();
+                List<Site> sites = dataService.getValidSites();
                 List<LinkTask> tasks = new ArrayList<>();
-
+                dataService.updateSites();
                 for (Site site : sites) {
                     String siteUrl = site.getUrl();
                     try {
@@ -118,33 +123,6 @@ public class SiteService {
         isProcessing.set(false); // Устанавливаем состояние "индексация остановлена"
     }
 
-
-    public List<Site> getValidSites() {
-        List<Site> validSites = new ArrayList<>();
-
-        for (Site site : sitesList.getSites()) {
-            String siteUrl = site.getUrl();
-            System.out.println("Checking site: " + siteUrl);
-
-            try {
-                int timeOutInt = 3000;
-                Document doc = Jsoup.connect(siteUrl).timeout(timeOutInt).get();
-                Elements links = doc.select("a[href]");
-
-                if (!links.isEmpty()) {
-                    validSites.add(site);
-                    System.out.println("Site is valid: " + siteUrl);
-                } else {
-                    System.out.println("Site is invalid: " + siteUrl + " (No links found)");
-                }
-            } catch (IOException e) {
-                System.out.println("Error processing site: " + siteUrl + " (" + e.getMessage() + ")");
-            }
-        }
-
-        System.out.println("Total valid sites: " + validSites.size());
-        return validSites;
-    }
 
     public boolean isIndexing() {
         return isProcessing.get();
