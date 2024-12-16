@@ -41,7 +41,6 @@ public class SiteService {
             System.out.println("Processing is already running!");
             return;
         }
-
         isProcessing.set(true); // Устанавливаем состояние "индексация запущена"
         manuallyStopped = false; // Сбрасываем флаг ручной остановки
         LinkTask.stopProcessing(); // Убедимся, что старые задачи остановлены
@@ -51,15 +50,13 @@ public class SiteService {
             forkJoinPool.shutdown(); // Останавливаем старый пул потоков, если он не завершён
         }
         forkJoinPool = new ForkJoinPool(); // Создаём новый пул потоков
-        dataService.deleteSiteData(); // Удаляем старые данные
-//        dataService.createSiteRecord(); // Сохраняем все сайты в бд
+
         forkJoinPool.execute(() -> {
             System.out.println("Indexing started...");
 
             try {
                 List<Site> sites = dataService.getValidSites();
                 List<LinkTask> tasks = new ArrayList<>();
-                dataService.updateSites();
                 for (Site site : sites) {
                     String siteUrl = site.getUrl();
                     try {
