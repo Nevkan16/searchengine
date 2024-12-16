@@ -9,10 +9,12 @@ import searchengine.config.FakeConfig;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.model.SiteEntity;
+import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -31,9 +33,9 @@ public class SiteService {
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
-    private final SiteRepository siteRepository;
     private final DataService dataService;
-    private final SiteEntity siteEntity;
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -66,23 +68,6 @@ public class SiteService {
                         LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig);
                         tasks.add(linkTask);
                         forkJoinPool.execute(linkTask);
-
-                        // Сохраняем сайт в базе данных
-                        dataService.createSiteRecord(site);
-
-                        // Сохраняем страницы в базе данных
-                        Elements links = doc.select("a[href]");
-                        for (org.jsoup.nodes.Element link : links) {
-                            String linkHref = link.attr("href");
-                            dataService.savePageToDb(linkHref, doc); // Сохраняем страницу в БД
-                        }
-
-                        // Обновляем время статуса для сайта
-                        SiteEntity siteEntity = siteRepository.findByUrl(siteUrl);
-                        if (siteEntity != null) {
-                            dataService.updateSiteStatusTime(siteEntity); // Обновляем время статуса
-                        }
-
                     } catch (IOException e) {
                         System.out.println("Error processing site: " + siteUrl);
                     }
@@ -97,10 +82,8 @@ public class SiteService {
                 System.out.println("Error during indexing: " + e.getMessage());
             } finally {
                 if (!manuallyStopped) {
-                    dataService.finishIndexing(siteEntity, true);
                     System.out.println("Indexing completed automatically.");
                 } else {
-                    dataService.handleManualStop();
                     System.out.println("Indexing stopped by user.");
                 }
                 isProcessing.set(false); // Индексация завершена
@@ -169,6 +152,16 @@ public class SiteService {
         return validSites;
     }
 
+    public void createSiteRecord(Site site) {
+        SiteEntity siteEntity = new SiteEntity();
+        siteEntity.setUrl(site.getUrl());
+        siteEntity.setName(site.getName());
+        siteEntity.setStatus(SiteEntity.Status.INDEXING);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteEntity.setLastError(null);
+
+        siteRepository.save(siteEntity);
+    }
     public boolean isIndexing() {
         return isProcessing.get();
     }
