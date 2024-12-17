@@ -54,83 +54,27 @@ public class DataService {
         return validSites;
     }
 
-    @Transactional
-    public void deleteSiteData() {
-        System.out.println("Удаление старых данных...");
-        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
-        for (Site siteConfig : allSites) {
-            System.out.println("Проверяем сайт: " + siteConfig.getUrl());
-            SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl());
-
-            if (siteEntity != null) {
-                System.out.println("Найден сайт в БД: " + siteConfig.getUrl() + ". Удаляем данные.");
-                // Удаление связанных данных
-                pageRepository.deleteBySite(siteEntity);
-                System.out.println("Связанные страницы удалены для сайта: " + siteConfig.getUrl());
-
-                siteRepository.delete(siteEntity);
-                System.out.println("Сайт удален из БД: " + siteConfig.getUrl());
-
-                // Сброс автоинкремента
-                resetAutoIncrement("page");
-                resetAutoIncrement("site");
-            } else {
-                System.out.println("Сайт не найден в БД: " + siteConfig.getUrl());
-            }
-
-            // Создание новой записи
-            System.out.println("Создана новая запись для сайта: " + siteConfig.getUrl());
-        }
-    }
 
     @Transactional
     public void deleteSiteByUrl(String siteUrl) {
         System.out.println("Удаление данных для сайта: " + siteUrl);
 
-        // Поиск сайта в базе данных
-        SiteEntity siteEntity = siteRepository.findByUrl(siteUrl);
+        Optional<SiteEntity> siteEntityOpt = siteRepository.findByUrl(siteUrl);
+        if (siteEntityOpt.isPresent()) {
+            SiteEntity siteEntity = siteEntityOpt.get();
 
-        if (siteEntity != null) {
             System.out.println("Найден сайт в БД: " + siteUrl + ". Удаляем связанные страницы...");
-
-            // Удаление всех страниц, связанных с этим сайтом
             pageRepository.deleteBySite(siteEntity);
             System.out.println("Связанные страницы удалены для сайта: " + siteUrl);
 
-            // Удаление самого сайта
             siteRepository.delete(siteEntity);
             System.out.println("Сайт удален из БД: " + siteUrl);
 
-            // Сброс автоинкремента
             resetAutoIncrement("page");
             resetAutoIncrement("site");
             System.out.println("Автоинкремент для таблиц 'page' и 'site' сброшен.");
         } else {
-            System.out.println("Сайт не найден в БД: " + siteUrl);
-        }
-    }
-
-
-    public void createSitesRecord() {
-        System.out.println("Создание новых записей о сайте...");
-        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
-
-        for (Site site : allSites) {
-            // Создаем объект SiteEntity для записи в базу данных
-            SiteEntity siteEntity = new SiteEntity();
-            siteEntity.setUrl(site.getUrl());
-            siteEntity.setName(site.getName());
-            siteEntity.setStatus(SiteEntity.Status.INDEXING);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteEntity.setLastError(null);
-
-            try {
-                // Сохраняем объект в базе данных
-                siteRepository.save(siteEntity);
-                System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
-            } catch (Exception e) {
-                System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
-            }
+            System.out.println("Сайт не найден в БД: " + siteUrl + ". Удаление пропущено.");
         }
     }
 
@@ -138,8 +82,12 @@ public class DataService {
     public void createSiteRecord(Site site) {
         System.out.println("Создание новой записи о сайте: " + site.getUrl());
 
+        if (siteRepository.findByUrl(site.getUrl()).isPresent()) {
+            System.out.println("Сайт уже существует в БД: " + site.getUrl());
+            return;
+        }
+
         try {
-            // Создаем объект SiteEntity для записи в базу данных
             SiteEntity siteEntity = SiteEntity.builder()
                     .url(site.getUrl())
                     .name(site.getName())
@@ -148,7 +96,6 @@ public class DataService {
                     .lastError(null)
                     .build();
 
-            // Сохраняем объект в базе данных
             siteRepository.save(siteEntity);
             System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
         } catch (Exception e) {
@@ -156,12 +103,37 @@ public class DataService {
         }
     }
 
+
     private void resetAutoIncrement(String tableName) {
         try {
             entityManager.createNativeQuery("ALTER TABLE " + tableName + " AUTO_INCREMENT = 1").executeUpdate();
             System.out.println("Автоинкремент сброшен для таблицы: " + tableName);
         } catch (Exception e) {
             System.out.println("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
+        }
+    }
+
+
+    @Transactional
+    public void deleteSiteData() {
+        System.out.println("Удаление старых данных...");
+        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
+        for (Site siteConfig : allSites) {
+            System.out.println("Проверяем сайт: " + siteConfig.getUrl());
+            SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl()).orElseThrow();
+
+            System.out.println("Найден сайт в БД: " + siteConfig.getUrl() + ". Удаляем данные.");
+            // Удаление связанных данных
+            pageRepository.deleteBySite(siteEntity);
+            System.out.println("Связанные страницы удалены для сайта: " + siteConfig.getUrl());
+
+            siteRepository.delete(siteEntity);
+            System.out.println("Сайт удален из БД: " + siteConfig.getUrl());
+
+            // Сброс автоинкремента
+            resetAutoIncrement("page");
+            resetAutoIncrement("site");
+
         }
     }
 
@@ -218,16 +190,12 @@ public class DataService {
     }
 
     private void updateSiteStatusInDb(Site site, String lastError) {
-        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl());
-        if (siteEntity != null) {
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-            siteEntity.setLastError(lastError);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteRepository.save(siteEntity);
-            System.out.println("Updated site in DB: " + site.getUrl() + " (Status: " + SiteEntity.Status.FAILED + ", Error: " + lastError + ")");
-        } else {
-            System.out.println("Site not found in DB: " + site.getUrl());
-        }
+        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElseThrow();
+        siteEntity.setStatus(SiteEntity.Status.FAILED);
+        siteEntity.setLastError(lastError);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteRepository.save(siteEntity);
+        System.out.println("Updated site in DB: " + site.getUrl() + " (Status: " + SiteEntity.Status.FAILED + ", Error: " + lastError + ")");
     }
 
     @Transactional

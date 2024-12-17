@@ -34,7 +34,7 @@ public class SiteService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
     private final DataService dataService;
-    private final SiteRepository siteRepository;
+    private final PageDataService pageDataService;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -61,7 +61,8 @@ public class SiteService {
                     String siteUrl = site.getUrl();
                     try {
                         Document doc = Jsoup.connect(siteUrl).get();
-                        LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig);
+                        LinkTask linkTask = new LinkTask(
+                                doc, siteUrl, 0, 2, fakeConfig, pageDataService);
                         tasks.add(linkTask);
                         forkJoinPool.execute(linkTask);
                     } catch (IOException e) {

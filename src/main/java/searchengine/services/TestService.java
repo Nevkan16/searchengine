@@ -7,6 +7,8 @@ import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
+import java.util.Optional;
+
 @Service
 public class TestService {
 
@@ -21,12 +23,12 @@ public class TestService {
     }
 
     public void deleteSiteData(String url) {
-        SiteEntity site = siteRepository.findByUrl(url);  // Ищем сайт по URL
+        Optional<SiteEntity> site = siteRepository.findByUrl(url);  // Ищем сайт по URL
         if (site != null) {
             // Удаляем страницы сайта
-            pageRepository.deleteBySite(site);
+            pageRepository.deleteBySite(site.orElseThrow());
             // Удаляем сам сайт
-            siteRepository.delete(site);
+            siteRepository.delete(site.orElseThrow());
         }
     }
 
@@ -38,13 +40,13 @@ public class TestService {
             System.out.println("Проверяем сайт: " + siteConfig.getUrl());
 
             // Проверяем, существует ли сайт в базе данных
-            SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl());
+            Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteConfig.getUrl());
             if (siteEntity != null) {
                 System.out.println("Найден сайт в БД: " + siteConfig.getUrl() + ". Удаляем его.");
 
                 try {
                     // Удаляем сам сайт
-                    siteRepository.delete(siteEntity);
+                    siteRepository.delete(siteEntity.orElseThrow());
                     System.out.println("Сайт удален: " + siteConfig.getUrl());
                 } catch (Exception e) {
                     System.out.println("Ошибка с удалением сайта: " + siteConfig.getUrl());
@@ -53,7 +55,7 @@ public class TestService {
 
                 try {
                     // Удаляем страницы, связанные с этим сайтом
-                    pageRepository.deleteBySite(siteEntity);
+                    pageRepository.deleteBySite(siteEntity.orElseThrow());
                     System.out.println("Страницы удалены для сайта: " + siteConfig.getUrl());
                 } catch (Exception e) {
                     System.out.println("Ошибка с удалением страниц для сайта: " + siteConfig.getUrl());

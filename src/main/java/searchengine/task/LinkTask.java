@@ -2,10 +2,11 @@ package searchengine.task;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import searchengine.config.FakeConfig;
+import searchengine.model.SiteEntity;
+import searchengine.services.PageDataService;
 import searchengine.utils.HtmlLoader;
 
 import java.io.IOException;
@@ -19,11 +20,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class LinkTask extends RecursiveTask<Void> {
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
-    private final Document doc;
-    private final String baseUrl;
-    private final int depth;
-    private final int maxDepth;
+
+    private final Document doc;      // HTML-документ текущей страницы
+    private final String baseUrl;    // Полный URL текущей страницы
+    private final int depth;         // Текущая глубина
+    private final int maxDepth;      // Максимальная глубина
     private final FakeConfig fakeConfig;
+    private final PageDataService pageDataService; // Сервис для сохранения страниц
 
     @Override
     protected Void compute() {
@@ -33,6 +36,7 @@ public class LinkTask extends RecursiveTask<Void> {
 
         try {
             LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
+            savePageToDatabase(baseUrl, doc); // Сохраняем текущую страницу в БД
             Set<LinkTask> subTasks = processLinks(linkProcessor);
             if (!stopProcessing.get()) {
                 invokeAll(subTasks);
@@ -60,7 +64,8 @@ public class LinkTask extends RecursiveTask<Void> {
                 log.info("Processing: {}", linkHref);
 
                 try {
-                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref); // Вызов HtmlLoader
+                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref); // Загружаем дочерний документ
+                    savePageToDatabase(linkHref, childDoc); // Сохраняем в БД
                     subTasks.add(createSubTask(childDoc, linkHref));
                 } catch (IOException e) {
                     log.error("Failed to load: " + linkHref, e);
@@ -69,6 +74,27 @@ public class LinkTask extends RecursiveTask<Void> {
         }
 
         return subTasks;
+    }
+
+    private void savePageToDatabase(String url, Document document) {
+        try {
+            String path = new URI(url).getPath(); // Извлекаем путь из URL
+            int statusCode = 200;                 // HTTP-код ответа по умолчанию
+            String content = document.html();     // HTML-содержимое страницы
+
+            // Получаем SiteEntity из базы данных
+            SiteEntity siteEntity = pageDataService.getSiteEntityByUrl(baseUrl);
+
+            if (siteEntity != null) {
+                // Сохраняем страницу в базе данных через сервис
+                pageDataService.addPage(siteEntity, path, statusCode, content);
+                log.info("Page saved to database: {}", path);
+            } else {
+                log.warn("SiteEntity not found for URL: {}", baseUrl);
+            }
+        } catch (Exception e) {
+            log.error("Failed to save page to database: " + url, e);
+        }
     }
 
     private String getBaseDomain() {
@@ -81,7 +107,7 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig);
+        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, pageDataService);
     }
 
     public static void resetStopFlag() {
@@ -92,4 +118,3 @@ public class LinkTask extends RecursiveTask<Void> {
         stopProcessing.set(true);
     }
 }
-
