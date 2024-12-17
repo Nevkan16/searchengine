@@ -83,7 +83,35 @@ public class DataService {
         }
     }
 
-    public void createSiteRecord() {
+    @Transactional
+    public void deleteSiteByUrl(String siteUrl) {
+        System.out.println("Удаление данных для сайта: " + siteUrl);
+
+        // Поиск сайта в базе данных
+        SiteEntity siteEntity = siteRepository.findByUrl(siteUrl);
+
+        if (siteEntity != null) {
+            System.out.println("Найден сайт в БД: " + siteUrl + ". Удаляем связанные страницы...");
+
+            // Удаление всех страниц, связанных с этим сайтом
+            pageRepository.deleteBySite(siteEntity);
+            System.out.println("Связанные страницы удалены для сайта: " + siteUrl);
+
+            // Удаление самого сайта
+            siteRepository.delete(siteEntity);
+            System.out.println("Сайт удален из БД: " + siteUrl);
+
+            // Сброс автоинкремента
+            resetAutoIncrement("page");
+            resetAutoIncrement("site");
+            System.out.println("Автоинкремент для таблиц 'page' и 'site' сброшен.");
+        } else {
+            System.out.println("Сайт не найден в БД: " + siteUrl);
+        }
+    }
+
+
+    public void createSitesRecord() {
         System.out.println("Создание новых записей о сайте...");
         List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
 
@@ -103,6 +131,28 @@ public class DataService {
             } catch (Exception e) {
                 System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
             }
+        }
+    }
+
+    @Transactional
+    public void createSiteRecord(Site site) {
+        System.out.println("Создание новой записи о сайте: " + site.getUrl());
+
+        try {
+            // Создаем объект SiteEntity для записи в базу данных
+            SiteEntity siteEntity = SiteEntity.builder()
+                    .url(site.getUrl())
+                    .name(site.getName())
+                    .status(SiteEntity.Status.INDEXING)
+                    .statusTime(LocalDateTime.now())
+                    .lastError(null)
+                    .build();
+
+            // Сохраняем объект в базе данных
+            siteRepository.save(siteEntity);
+            System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
+        } catch (Exception e) {
+            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
         }
     }
 
