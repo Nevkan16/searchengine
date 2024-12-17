@@ -31,19 +31,18 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
-        if (siteService.isIndexing()) {
+        if (indexingService.startIndexing()) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
         }
-        siteService.processSites();  // Теперь этот метод выполняется асинхронно
+
         return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
-        if (!siteService.isIndexing()) {
+        if (!indexingService.stopIndexing()) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация не запущена"));
         }
-        siteService.stopProcessing();
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
 

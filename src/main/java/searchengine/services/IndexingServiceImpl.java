@@ -12,19 +12,16 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean startIndexing() {
-        // Проверяем, выполняется ли уже индексация
+        // Используем метод siteService для проверки текущего статуса индексации
         if (siteService.isIndexing()) {
             System.out.println("Индексация уже запущена.");
             return false;
         }
 
         try {
-            System.out.println("Запуск обновления данных сайтов...");
+            System.out.println("Запуск процесса индексации...");
             siteDataExecutor.refreshAllSitesData();
-
-            System.out.println("Запуск процесса индексации сайтов...");
-            siteService.processSites();
-
+            siteService.processSites(); // Запускаем процесс индексации
             return true;
         } catch (Exception e) {
             System.err.println("Ошибка при запуске индексации: " + e.getMessage());
@@ -34,6 +31,12 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean stopIndexing() {
+        // Проверяем, выполняется ли индексация через siteService
+        if (!siteService.isIndexing()) {
+            System.out.println("Индексация не запущена.");
+            return false;
+        }
+
         System.out.println("Остановка процесса индексации...");
         siteService.stopProcessing();
         return true;
