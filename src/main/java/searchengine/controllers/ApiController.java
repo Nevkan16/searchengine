@@ -22,6 +22,7 @@ public class ApiController {
     private final TestService testService;
     private final HtmlLoader htmlLoader;
     private final SiteDataExecutor siteDataExecutor;
+    private final IndexingServiceImpl indexingService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -70,7 +71,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            siteDataExecutor.refreshAllSitesData();
+            indexingService.startIndexing();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
