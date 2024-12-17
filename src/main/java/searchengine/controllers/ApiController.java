@@ -31,7 +31,7 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
-        if (indexingService.startIndexing()) {
+        if (!indexingService.startIndexing()) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
         }
 
