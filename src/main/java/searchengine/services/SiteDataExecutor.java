@@ -19,43 +19,40 @@ public class SiteDataExecutor {
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
 
     public void refreshAllSitesData() {
-        if (isRunning.get()) { // Проверка: если уже запущен, выходим
+        if (isRunning.get()) {
             System.out.println("Обновление уже запущено. Ожидайте завершения.");
             return;
         }
 
-        System.out.println("Обновление данных для всех сайтов...");
+        System.out.println("Начало обновления данных для всех сайтов...");
 
         if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
             restartExecutor();
         }
 
-        isRunning.set(true); // Устанавливаем флаг выполнения
+        isRunning.set(true);
 
         List<Site> allSites = dataService.getAllSites();
         if (allSites.isEmpty()) {
             System.out.println("Список сайтов пуст. Обновление завершено.");
-            isRunning.set(false); // Сбрасываем флаг
+            isRunning.set(false);
             return;
         }
 
         try {
-            allSites.forEach(site -> executorService.submit(() -> processSite(site)));
+            // Шаг 1: Удаление всех сайтов из базы данных
+            allSites.forEach(site -> dataService.deleteSiteByUrl(site.getUrl()));
+
+            // Шаг 2: Сброс автоинкремента
+            dataService.resetIncrement();
+
+            // Шаг 3: Создание записей в базе данных в многопоточном режиме
+            allSites.forEach(site -> executorService.submit(() -> dataService.createSiteRecord(site)));
+
+            System.out.println("Обновление данных завершено.");
         } finally {
             shutdownExecutor();
-            isRunning.set(false); // Сбрасываем флаг выполнения
-        }
-
-        System.out.println("Обновление данных завершено.");
-    }
-
-    private void processSite(Site site) {
-        String siteUrl = site.getUrl();
-        System.out.println("Обработка сайта: " + siteUrl);
-
-        synchronized (this) {
-            dataService.deleteSiteByUrl(siteUrl);
-            dataService.createSiteRecord(site);
+            isRunning.set(false);
         }
     }
 

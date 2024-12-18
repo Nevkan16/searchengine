@@ -70,7 +70,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            indexingService.startIndexing();
+            siteDataExecutor.refreshAllSitesData();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));

@@ -70,12 +70,15 @@ public class DataService {
             siteRepository.delete(siteEntity);
             System.out.println("Сайт удален из БД: " + siteUrl);
 
-            resetAutoIncrement("page");
-            resetAutoIncrement("site");
-            System.out.println("Автоинкремент для таблиц 'page' и 'site' сброшен.");
         } else {
             System.out.println("Сайт не найден в БД: " + siteUrl + ". Удаление пропущено.");
         }
+    }
+
+    @Transactional
+    public void resetIncrement() {
+        resetAutoIncrement("page");
+        resetAutoIncrement("site");
     }
 
     @Transactional
