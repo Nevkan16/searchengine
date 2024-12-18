@@ -146,6 +146,42 @@ public class DataService {
     }
 
     @Transactional
+    public void saveOrUpdateSite(Site site, Long siteId) {
+        System.out.println(siteId == null
+                ? "Создание новой записи о сайте: " + site.getUrl()
+                : "Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
+
+        SiteEntity siteEntity = siteId != null
+                ? siteRepository.findById(siteId).orElse(null)
+                : null;
+
+        if (siteEntity == null) {
+            // Если сайт не найден, проверяем его по URL
+            if (siteRepository.findByUrl(site.getUrl()).isPresent()) {
+                System.out.println("Сайт уже существует в БД: " + site.getUrl());
+                return;
+            }
+            // Создаём новую запись
+            siteEntity = new SiteEntity();
+        }
+
+        try {
+            // Обновляем или заполняем поля
+            siteEntity.setUrl(site.getUrl());
+            siteEntity.setName(site.getName());
+            siteEntity.setStatus(SiteEntity.Status.INDEXING);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteEntity.setLastError(null);
+
+            siteRepository.save(siteEntity);
+            System.out.println("Сайт успешно " + (siteId == null ? "создан" : "обновлён") + " в БД: " + site.getUrl());
+        } catch (Exception e) {
+            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
+        }
+    }
+
+
+    @Transactional
     public void deleteSitesNotInConfig(List<Site> configuredSites) {
         System.out.println("Удаление сайтов, отсутствующих в конфигурации...");
 
@@ -232,6 +268,10 @@ public class DataService {
         } catch (IOException e) {
             return "Timeout or connection error";
         }
+    }
+
+    public void validateSiteAndSave() {
+
     }
 
     public List<Site> getValidSites() {

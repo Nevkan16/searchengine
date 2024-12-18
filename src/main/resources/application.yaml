@@ -21,8 +21,8 @@ indexing-settings:
       name: PlayBack.Ru
     - url: https://skillbox.ru
       name: skillbox
-    - url: https://www.svetlovka.ru
-      name: Svetlovka
+#    - url: https://www.svetlovka.ru
+#      name: Svetlovka
 #    - url: https://www.svetlovka.ru
 #      name: Svetlovka
 fake:

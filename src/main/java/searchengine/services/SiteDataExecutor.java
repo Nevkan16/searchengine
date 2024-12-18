@@ -7,7 +7,6 @@ import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -50,15 +49,14 @@ public class SiteDataExecutor {
             dataService.deleteSitesNotInConfig(configuredSites);
             dataService.resetIncrement();
 
-            // Шаг 2: Обновление данных сайтов (создание или обновление)
+            // Шаг 2: Создание или обновление сайтов
             configuredSites.forEach(site -> {
-                Optional<SiteEntity> existingSiteOpt = siteRepository.findByUrl(site.getUrl());
-                if (existingSiteOpt.isPresent()) {
-                    long siteId = existingSiteOpt.get().getId();
-                    executorService.submit(() -> dataService.updateSiteRecord(site, siteId));
-                } else {
-                    executorService.submit(() -> dataService.createSiteRecord(site));
-                }
+                executorService.submit(() -> {
+                    SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
+                            .orElse(null);
+                    Long siteId = existingSite != null ? existingSite.getId() : null;
+                    dataService.saveOrUpdateSite(site, siteId); // Используем новый метод
+                });
             });
 
             System.out.println("Обновление данных завершено.");
