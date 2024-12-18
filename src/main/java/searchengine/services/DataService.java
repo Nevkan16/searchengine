@@ -84,7 +84,7 @@ public class DataService {
 
     // В классе SiteService
     public void updateSiteStatusToIndexed(String siteUrl) {
-        Optional<SiteEntity> siteEntity = siteRepository.findSiteByUrl(siteUrl); // Получаем сайт по URL
+        Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl); // Получаем сайт по URL
         if (siteEntity.isPresent()) {
             SiteEntity indexedSite = siteEntity.get();
             indexedSite.setStatus(SiteEntity.Status.INDEXED);

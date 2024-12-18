@@ -7,8 +7,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SiteRepository extends JpaRepository<SiteEntity, Long> {
-    Optional<SiteEntity> findByUrl(String url);
+    Optional<SiteEntity> findByUrl(String url);  // Оставить только этот метод
 
     List<SiteEntity> findByStatus(SiteEntity.Status status);
-    Optional<SiteEntity> findSiteByUrl(String url);
+
 }
+
