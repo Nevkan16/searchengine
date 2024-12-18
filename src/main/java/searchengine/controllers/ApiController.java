@@ -2,6 +2,7 @@ package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,6 +68,7 @@ public class ApiController {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при удалении фиктивных данных"));
         }
     }
+
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {

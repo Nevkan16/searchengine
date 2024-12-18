@@ -8,6 +8,7 @@ import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,4 +51,11 @@ public class PageDataService {
                 .orElseThrow(() -> new IllegalArgumentException("Site not found for URL: " + url));
     }
 
+    public void deleteAllPages () {
+        try {
+            pageRepository.deleteAll(); // Удалить все записи
+        } catch (Exception e) {
+            log.info("Ошибка удаления страниц deleteAll");
+        }
+    }
 }

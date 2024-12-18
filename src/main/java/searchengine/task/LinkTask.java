@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
 import searchengine.model.SiteEntity;
 import searchengine.services.PageDataService;
@@ -92,8 +93,10 @@ public class LinkTask extends RecursiveTask<Void> {
             } else {
                 log.warn("SiteEntity not found for URL: {}", baseUrl);
             }
+        } catch (UnexpectedRollbackException e) {
+            log.error("Transaction rollback occurred for page: {}", url); // Убираем stack trace
         } catch (Exception e) {
-            log.error("Failed to save page to database: " + url, e);
+            log.error("Failed to save page to database: " + url, e); // Оставляем stack trace для остальных ошибок
         }
     }
 

@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
+import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.List;
@@ -22,6 +23,8 @@ public class SiteDataExecutor {
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final PageDataService pageDataService;
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
@@ -49,6 +52,7 @@ public class SiteDataExecutor {
         try {
             // Шаг 1: Удаление сайтов, которых нет в конфигурации
             dataService.deleteSitesNotInConfig(configuredSites);
+            pageDataService.deleteAllPages();
             dataService.resetIncrement();
 
             // Шаг 2: Создание или обновление сайтов
