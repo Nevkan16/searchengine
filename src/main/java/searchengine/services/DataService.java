@@ -106,6 +106,71 @@ public class DataService {
         }
     }
 
+    @Transactional
+    public void updateSiteRecord(Site site, long siteId) {
+        System.out.println("Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
+
+        Optional<SiteEntity> existingSiteOpt = siteRepository.findById(siteId);
+        if (existingSiteOpt.isPresent()) {
+            // Сайт с таким id существует, обновляем его данные
+            SiteEntity existingSite = existingSiteOpt.get();
+
+            existingSite.setUrl(site.getUrl());
+            existingSite.setName(site.getName());
+            existingSite.setStatus(SiteEntity.Status.INDEXING);
+            existingSite.setStatusTime(LocalDateTime.now());
+            existingSite.setLastError(null);
+
+            siteRepository.save(existingSite);
+            System.out.println("Сайт успешно обновлен в БД: " + site.getUrl());
+        } else {
+            // Сайт с таким id отсутствует, создаем новую запись
+            System.out.println("Сайт с id: " + siteId + " отсутствует в БД. Создаем новую запись.");
+            createSiteRecord(site);
+        }
+    }
+
+    @Transactional
+    public void deleteSitesNotInConfig(List<Site> configuredSites) {
+        System.out.println("Удаление сайтов, отсутствующих в конфигурации...");
+
+        // Получаем все сайты из базы данных
+        List<SiteEntity> allSitesInDb = siteRepository.findAll();
+
+        // Собираем URL сайтов из конфигурации
+        Set<String> configuredUrls = new HashSet<>();
+        for (Site site : configuredSites) {
+            configuredUrls.add(site.getUrl());
+        }
+
+        // Фильтруем сайты, которых нет в конфигурации
+        List<SiteEntity> sitesToDelete = new ArrayList<>();
+        for (SiteEntity siteEntity : allSitesInDb) {
+            if (!configuredUrls.contains(siteEntity.getUrl())) {
+                sitesToDelete.add(siteEntity);
+            }
+        }
+
+        // Удаляем сайты из базы данных
+        for (SiteEntity siteToDelete : sitesToDelete) {
+            System.out.println("Удаляем сайт: " + siteToDelete.getUrl());
+            pageRepository.deleteBySite(siteToDelete);
+            siteRepository.delete(siteToDelete);
+        }
+
+        System.out.println("Удаление завершено. Удалено сайтов: " + sitesToDelete.size());
+    }
+
+    @Transactional
+    public void deleteAllSites() {
+        System.out.println("Удаление всех сайтов из базы данных...");
+
+        pageRepository.deleteAll();
+        siteRepository.deleteAll();
+
+        System.out.println("Все сайты удалены из базы данных.");
+    }
+
 
     private void resetAutoIncrement(String tableName) {
         try {
@@ -115,7 +180,6 @@ public class DataService {
             System.out.println("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
         }
     }
-
 
     @Transactional
     public void deleteSiteData() {

@@ -3,8 +3,11 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
+import searchengine.model.SiteEntity;
+import searchengine.repository.SiteRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -17,6 +20,7 @@ public class SiteDataExecutor {
     private final DataService dataService;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
+    private final SiteRepository siteRepository;
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
@@ -32,22 +36,30 @@ public class SiteDataExecutor {
 
         isRunning.set(true);
 
-        List<Site> allSites = dataService.getAllSites();
-        if (allSites.isEmpty()) {
-            System.out.println("Список сайтов пуст. Обновление завершено.");
+        List<Site> configuredSites = dataService.getAllSites();
+        if (configuredSites.isEmpty()) {
+            System.out.println("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
+            dataService.deleteAllSites(); // Удалить все сайты, если список пуст
+            dataService.resetIncrement();
             isRunning.set(false);
             return;
         }
 
         try {
-            // Шаг 1: Удаление всех сайтов из базы данных
-            allSites.forEach(site -> dataService.deleteSiteByUrl(site.getUrl()));
-
-            // Шаг 2: Сброс автоинкремента
+            // Шаг 1: Удаление сайтов, которых нет в конфигурации
+            dataService.deleteSitesNotInConfig(configuredSites);
             dataService.resetIncrement();
 
-            // Шаг 3: Создание записей в базе данных в многопоточном режиме
-            allSites.forEach(site -> executorService.submit(() -> dataService.createSiteRecord(site)));
+            // Шаг 2: Обновление данных сайтов (создание или обновление)
+            configuredSites.forEach(site -> {
+                Optional<SiteEntity> existingSiteOpt = siteRepository.findByUrl(site.getUrl());
+                if (existingSiteOpt.isPresent()) {
+                    long siteId = existingSiteOpt.get().getId();
+                    executorService.submit(() -> dataService.updateSiteRecord(site, siteId));
+                } else {
+                    executorService.submit(() -> dataService.createSiteRecord(site));
+                }
+            });
 
             System.out.println("Обновление данных завершено.");
         } finally {
