@@ -12,6 +12,7 @@ import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.utils.HtmlLoader;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -151,32 +152,57 @@ public class DataService {
                 ? "Создание новой записи о сайте: " + site.getUrl()
                 : "Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
 
+        SiteEntity siteEntity = findOrCreateSiteEntity(site, siteId);
+
+        if (siteEntity == null) {
+            System.out.println("Сайт уже существует в БД: " + site.getUrl());
+            return;
+        }
+
+        try {
+            populateSiteEntity(siteEntity, site);
+            siteRepository.save(siteEntity);
+            System.out.println("Сайт успешно " + (siteId == null ? "создан" : "обновлён") + " в БД: " + site.getUrl());
+
+            validateAndUpdateSiteStatus(siteEntity);
+        } catch (Exception e) {
+            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
+        }
+    }
+
+    private SiteEntity findOrCreateSiteEntity(Site site, Long siteId) {
         SiteEntity siteEntity = siteId != null
                 ? siteRepository.findById(siteId).orElse(null)
                 : null;
 
-        if (siteEntity == null) {
-            // Если сайт не найден, проверяем его по URL
-            if (siteRepository.findByUrl(site.getUrl()).isPresent()) {
-                System.out.println("Сайт уже существует в БД: " + site.getUrl());
-                return;
-            }
-            // Создаём новую запись
-            siteEntity = new SiteEntity();
+        if (siteEntity == null && siteRepository.findByUrl(site.getUrl()).isPresent()) {
+            // Если сайт не найден по ID и уже существует по URL
+            return null;
         }
 
-        try {
-            // Обновляем или заполняем поля
-            siteEntity.setUrl(site.getUrl());
-            siteEntity.setName(site.getName());
-            siteEntity.setStatus(SiteEntity.Status.INDEXING);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteEntity.setLastError(null);
+        return siteEntity != null ? siteEntity : new SiteEntity();
+    }
 
+    private void populateSiteEntity(SiteEntity siteEntity, Site site) {
+        siteEntity.setUrl(site.getUrl());
+        siteEntity.setName(site.getName());
+        siteEntity.setStatus(SiteEntity.Status.INDEXING);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteEntity.setLastError(null);
+    }
+
+    private void validateAndUpdateSiteStatus(SiteEntity siteEntity) {
+        String validationError = validateSite(siteEntity.getUrl());
+        if (validationError != null) {
+            // Если валидация провалилась
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setLastError(validationError);
+            siteEntity.setStatusTime(LocalDateTime.now());
             siteRepository.save(siteEntity);
-            System.out.println("Сайт успешно " + (siteId == null ? "создан" : "обновлён") + " в БД: " + site.getUrl());
-        } catch (Exception e) {
-            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
+
+            System.out.println("Валидация сайта не пройдена: " + siteEntity.getUrl() + " (" + validationError + ")");
+        } else {
+            System.out.println("Сайт успешно прошёл валидацию: " + siteEntity.getUrl());
         }
     }
 
@@ -272,6 +298,19 @@ public class DataService {
 
     public void validateSiteAndSave() {
 
+    }
+
+    public List<String> getSitesForIndexing() {
+        List<SiteEntity> indexingSites = siteRepository.findByStatus(SiteEntity.Status.INDEXING);
+        if (indexingSites.isEmpty()) {
+            System.out.println("No sites with status INDEXING found.");
+            return new ArrayList<>();
+        }
+        List<String> sitesForIndexing = new ArrayList<>();
+        for (SiteEntity siteEntity : indexingSites) {
+            sitesForIndexing.add(siteEntity.getUrl());
+        }
+        return sitesForIndexing;
     }
 
     public List<Site> getValidSites() {

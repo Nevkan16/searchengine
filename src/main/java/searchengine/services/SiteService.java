@@ -55,10 +55,12 @@ public class SiteService {
             System.out.println("Indexing started...");
 
             try {
-                List<Site> sites = dataService.getValidSites();
+                // Получаем список URL сайтов с статусом INDEXING
+                List<String> sitesUrls = dataService.getSitesForIndexing();
                 List<LinkTask> tasks = new ArrayList<>();
-                for (Site site : sites) {
-                    String siteUrl = site.getUrl();
+
+                // Обрабатываем каждый URL
+                for (String siteUrl : sitesUrls) {
                     try {
                         Document doc = Jsoup.connect(siteUrl).get();
                         LinkTask linkTask = new LinkTask(
@@ -70,10 +72,13 @@ public class SiteService {
                     }
                 }
 
+                // Ждем завершения всех задач
                 for (LinkTask task : tasks) {
                     task.join();
                 }
-                sites.parallelStream().forEach(site -> dataService.updateSiteStatusToIndexed(site.getUrl()));
+
+                // Обновляем статус всех сайтов
+                sitesUrls.forEach(dataService::updateSiteStatusToIndexed);
 
                 System.out.println("Indexing completed.");
             } catch (Exception e) {

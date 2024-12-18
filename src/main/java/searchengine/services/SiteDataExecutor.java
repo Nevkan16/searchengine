@@ -1,6 +1,7 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
@@ -14,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SiteDataExecutor {
 
     private final DataService dataService;
@@ -23,11 +25,11 @@ public class SiteDataExecutor {
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
-            System.out.println("Обновление уже запущено. Ожидайте завершения.");
+            log.info("Обновление уже запущено. Ожидайте завершения.");
             return;
         }
 
-        System.out.println("Начало обновления данных для всех сайтов...");
+        log.info("Начало обновления данных для всех сайтов...");
 
         if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
             restartExecutor();
@@ -37,7 +39,7 @@ public class SiteDataExecutor {
 
         List<Site> configuredSites = dataService.getAllSites();
         if (configuredSites.isEmpty()) {
-            System.out.println("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
+            log.info("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
             dataService.deleteAllSites(); // Удалить все сайты, если список пуст
             dataService.resetIncrement();
             isRunning.set(false);
@@ -59,7 +61,7 @@ public class SiteDataExecutor {
                 });
             });
 
-            System.out.println("Обновление данных завершено.");
+            log.info("Обновление данных завершено.");
         } finally {
             shutdownExecutor();
             isRunning.set(false);
@@ -80,6 +82,6 @@ public class SiteDataExecutor {
 
     private void restartExecutor() {
         executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        System.out.println("Пул потоков пересоздан.");
+        log.info("Пул потоков пересоздан.");
     }
 }
