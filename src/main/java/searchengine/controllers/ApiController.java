@@ -24,6 +24,7 @@ public class ApiController {
     private final HtmlLoader htmlLoader;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
+    private final SiteUpdater siteUpdater;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {

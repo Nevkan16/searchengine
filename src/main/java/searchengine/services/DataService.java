@@ -4,15 +4,14 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
-import searchengine.utils.HtmlLoader;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -55,97 +54,6 @@ public class DataService {
         return validSites;
     }
 
-
-    @Transactional
-    public void deleteSiteByUrl(String siteUrl) {
-        System.out.println("Удаление данных для сайта: " + siteUrl);
-
-        Optional<SiteEntity> siteEntityOpt = siteRepository.findByUrl(siteUrl);
-        if (siteEntityOpt.isPresent()) {
-            SiteEntity siteEntity = siteEntityOpt.get();
-
-            System.out.println("Найден сайт в БД: " + siteUrl + ". Удаляем связанные страницы...");
-            pageRepository.deleteBySite(siteEntity);
-            System.out.println("Связанные страницы удалены для сайта: " + siteUrl);
-
-            siteRepository.delete(siteEntity);
-            System.out.println("Сайт удален из БД: " + siteUrl);
-
-        } else {
-            System.out.println("Сайт не найден в БД: " + siteUrl + ". Удаление пропущено.");
-        }
-    }
-
-    @Transactional
-    public void resetIncrement() {
-        resetAutoIncrement("page");
-        resetAutoIncrement("site");
-    }
-
-    // В классе SiteService
-    public void updateSiteStatusToIndexed(String siteUrl) {
-        Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl); // Получаем сайт по URL
-        if (siteEntity.isPresent()) {
-            SiteEntity indexedSite = siteEntity.get();
-            indexedSite.setStatus(SiteEntity.Status.INDEXED);
-            indexedSite.setStatusTime(LocalDateTime.now());
-            siteRepository.save(indexedSite);
-            System.out.println("Site status updated to INDEXED: " + siteUrl);
-        } else {
-            System.out.println("Site not found: " + siteUrl);
-        }
-    }
-
-
-    @Transactional
-    public void createSiteRecord(Site site) {
-        System.out.println("Создание новой записи о сайте: " + site.getUrl());
-
-        if (siteRepository.findByUrl(site.getUrl()).isPresent()) {
-            System.out.println("Сайт уже существует в БД: " + site.getUrl());
-            return;
-        }
-
-        try {
-            SiteEntity siteEntity = SiteEntity.builder()
-                    .url(site.getUrl())
-                    .name(site.getName())
-                    .status(SiteEntity.Status.INDEXING)
-                    .statusTime(LocalDateTime.now())
-                    .lastError(null)
-                    .build();
-
-            siteRepository.save(siteEntity);
-            System.out.println("Сайт успешно сохранен в БД: " + site.getUrl());
-        } catch (Exception e) {
-            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
-        }
-    }
-
-    @Transactional
-    public void updateSiteRecord(Site site, long siteId) {
-        System.out.println("Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
-
-        Optional<SiteEntity> existingSiteOpt = siteRepository.findById(siteId);
-        if (existingSiteOpt.isPresent()) {
-            // Сайт с таким id существует, обновляем его данные
-            SiteEntity existingSite = existingSiteOpt.get();
-
-            existingSite.setUrl(site.getUrl());
-            existingSite.setName(site.getName());
-            existingSite.setStatus(SiteEntity.Status.INDEXING);
-            existingSite.setStatusTime(LocalDateTime.now());
-            existingSite.setLastError(null);
-
-            siteRepository.save(existingSite);
-            System.out.println("Сайт успешно обновлен в БД: " + site.getUrl());
-        } else {
-            // Сайт с таким id отсутствует, создаем новую запись
-            System.out.println("Сайт с id: " + siteId + " отсутствует в БД. Создаем новую запись.");
-            createSiteRecord(site);
-        }
-    }
-
     @Transactional
     public void saveOrUpdateSite(Site site, Long siteId) {
         System.out.println(siteId == null
@@ -169,6 +77,27 @@ public class DataService {
             System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
         }
     }
+
+    @Transactional
+    public void resetIncrement() {
+        resetAutoIncrement("page");
+        resetAutoIncrement("site");
+    }
+
+    // В классе SiteService
+    public void updateSiteStatusToIndexed(String siteUrl) {
+        Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl); // Получаем сайт по URL
+        if (siteEntity.isPresent()) {
+            SiteEntity indexedSite = siteEntity.get();
+            indexedSite.setStatus(SiteEntity.Status.INDEXED);
+            indexedSite.setStatusTime(LocalDateTime.now());
+            siteRepository.save(indexedSite);
+            System.out.println("Site status updated to INDEXED: " + siteUrl);
+        } else {
+            System.out.println("Site not found: " + siteUrl);
+        }
+    }
+
 
     private SiteEntity findOrCreateSiteEntity(Site site, Long siteId) {
         SiteEntity siteEntity = siteId != null
@@ -296,10 +225,6 @@ public class DataService {
         }
     }
 
-    public void validateSiteAndSave() {
-
-    }
-
     public List<String> getSitesForIndexing() {
         List<SiteEntity> indexingSites = siteRepository.findByStatus(SiteEntity.Status.INDEXING);
         if (indexingSites.isEmpty()) {
@@ -311,85 +236,6 @@ public class DataService {
             sitesForIndexing.add(siteEntity.getUrl());
         }
         return sitesForIndexing;
-    }
-
-    public List<Site> getValidSites() {
-        System.out.println("Проверка сайта на валидность ссылок...");
-        List<Site> validSites = new ArrayList<>();
-
-        for (Site site : sitesList.getSites()) {
-            String siteUrl = site.getUrl();
-            System.out.println("Checking site: " + siteUrl);
-
-            String validationError = validateSite(siteUrl);
-
-            if (validationError == null) {
-                validSites.add(site);
-                System.out.println("Site is valid: " + siteUrl);
-            } else {
-                System.out.println("Site is invalid: " + siteUrl + " (" + validationError + ")");
-            }
-        }
-
-        System.out.println("Total valid sites: " + validSites.size());
-        return validSites;
-    }
-
-    @Transactional
-    public void updateSites() {
-        System.out.println("Обновление данных для сайта с ошибками...");
-        for (Site site : sitesList.getSites()) {
-            String siteUrl = site.getUrl();
-            System.out.println("Checking site in DB: " + siteUrl);
-
-            String validationError = validateSite(siteUrl);
-
-            if (validationError != null) {
-                updateSiteStatusInDb(site, validationError);
-            }
-        }
-    }
-
-    private void updateSiteStatusInDb(Site site, String lastError) {
-        SiteEntity siteEntity = siteRepository.findByUrl(site.getUrl()).orElseThrow();
-        siteEntity.setStatus(SiteEntity.Status.FAILED);
-        siteEntity.setLastError(lastError);
-        siteEntity.setStatusTime(LocalDateTime.now());
-        siteRepository.save(siteEntity);
-        System.out.println("Updated site in DB: " + site.getUrl() + " (Status: " + SiteEntity.Status.FAILED + ", Error: " + lastError + ")");
-    }
-
-    @Transactional
-    public void savePageToDb(String linkHref, Document doc) {
-        try {
-        // Получаем или создаём сущность PageEntity
-        PageEntity pageEntity = new PageEntity();
-        pageEntity.setPath(linkHref);
-        pageEntity.setContent(doc.html()); // или обработанный контент
-        pageEntity.setCode(200); // Код ответа, возможно, стоит передавать как параметр
-
-            // Проверяем на дублирование в базе
-            if (!pageRepository.existsByPath(linkHref)) {
-                pageRepository.save(pageEntity);
-            }
-        } catch (Exception e) {
-            System.out.println("Failed to save page");
-        }
-    }
-
-    public void updateSiteStatusTime(SiteEntity siteEntity) {
-        siteEntity.setStatusTime(LocalDateTime.now());
-        siteRepository.save(siteEntity);
-    }
-
-    public void finishIndexing(SiteEntity siteEntity, boolean isSuccess) {
-        if (isSuccess) {
-            siteEntity.setStatus(SiteEntity.Status.INDEXED);
-        } else {
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-        }
-        siteEntity.setStatusTime(LocalDateTime.now());
-        siteRepository.save(siteEntity);
     }
 
     public void handleManualStop() {
