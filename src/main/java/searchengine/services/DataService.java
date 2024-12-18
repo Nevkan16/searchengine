@@ -393,8 +393,9 @@ public class DataService {
     }
 
     public void handleManualStop() {
-        for (SiteEntity siteEntity : siteRepository.findByStatus(SiteEntity.Status.INDEXING)) {
+        for (SiteEntity siteEntity : siteRepository.findAll()) {
             siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setStatusTime(LocalDateTime.now());
             siteEntity.setLastError("Индексация остановлена пользователем");
             siteRepository.save(siteEntity);
         }

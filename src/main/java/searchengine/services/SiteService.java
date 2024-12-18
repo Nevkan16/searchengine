@@ -77,24 +77,25 @@ public class SiteService {
                     task.join();
                 }
 
-                // Обновляем статус всех сайтов
-                sitesUrls.forEach(dataService::updateSiteStatusToIndexed);
-
-                System.out.println("Indexing completed.");
+                if (!manuallyStopped) {
+                    // Индексация завершена автоматически
+                    System.out.println("Indexing completed automatically.");
+                    // Обновляем статус всех сайтов
+                    sitesUrls.forEach(dataService::updateSiteStatusToIndexed);
+                } else {
+                    dataService.handleManualStop();
+                    System.out.println("Indexing stopped by user.");
+                }
             } catch (Exception e) {
                 System.out.println("Error during indexing: " + e.getMessage());
             } finally {
-                if (!manuallyStopped) {
-                    System.out.println("Indexing completed automatically.");
-                } else {
-                    System.out.println("Indexing stopped by user.");
-                }
                 isProcessing.set(false); // Индексация завершена
             }
         });
 
         scheduleStopProcessing();
     }
+
 
 
     private void scheduleStopProcessing() {
