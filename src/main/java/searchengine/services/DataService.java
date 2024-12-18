@@ -81,6 +81,21 @@ public class DataService {
         resetAutoIncrement("site");
     }
 
+    // В классе SiteService
+    public void updateSiteStatusToIndexed(String siteUrl) {
+        Optional<SiteEntity> siteEntity = siteRepository.findSiteByUrl(siteUrl); // Получаем сайт по URL
+        if (siteEntity.isPresent()) {
+            SiteEntity indexedSite = siteEntity.get();
+            indexedSite.setStatus(SiteEntity.Status.INDEXED);
+            indexedSite.setStatusTime(LocalDateTime.now());
+            siteRepository.save(indexedSite);
+            System.out.println("Site status updated to INDEXED: " + siteUrl);
+        } else {
+            System.out.println("Site not found: " + siteUrl);
+        }
+    }
+
+
     @Transactional
     public void createSiteRecord(Site site) {
         System.out.println("Создание новой записи о сайте: " + site.getUrl());

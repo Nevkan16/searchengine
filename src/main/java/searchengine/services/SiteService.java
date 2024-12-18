@@ -46,49 +46,66 @@ public class SiteService {
         LinkTask.stopProcessing(); // Убедимся, что старые задачи остановлены
         LinkTask.resetStopFlag();  // Сбрасываем флаг остановки для новых задач
 
+        // Останавливаем старый пул потоков, если он не завершён
         if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
-            forkJoinPool.shutdown(); // Останавливаем старый пул потоков, если он не завершён
+            forkJoinPool.shutdown();
         }
-        forkJoinPool = new ForkJoinPool(); // Создаём новый пул потоков
 
-        forkJoinPool.execute(() -> {
-            System.out.println("Indexing started...");
+        // Создаём новый пул потоков
+        forkJoinPool = new ForkJoinPool();
 
-            try {
-                List<Site> sites = dataService.getValidSites();
-                List<LinkTask> tasks = new ArrayList<>();
-                for (Site site : sites) {
-                    String siteUrl = site.getUrl();
-                    try {
-                        Document doc = Jsoup.connect(siteUrl).get();
-                        LinkTask linkTask = new LinkTask(
-                                doc, siteUrl, 0, 2, fakeConfig, pageDataService);
-                        tasks.add(linkTask);
-                        forkJoinPool.execute(linkTask);
-                    } catch (IOException e) {
-                        System.out.println("Error processing site: " + siteUrl);
+        try {
+            forkJoinPool.execute(() -> {
+                System.out.println("Indexing started...");
+
+                try {
+                    List<Site> sites = dataService.getValidSites();
+                    List<LinkTask> tasks = new ArrayList<>();
+                    for (Site site : sites) {
+                        String siteUrl = site.getUrl();
+                        try {
+                            Document doc = Jsoup.connect(siteUrl).get();
+                            LinkTask linkTask = new LinkTask(
+                                    doc, siteUrl, 0, 2, fakeConfig, pageDataService);
+                            tasks.add(linkTask);
+                            forkJoinPool.execute(linkTask);
+                        } catch (IOException e) {
+                            System.out.println("Error processing site: " + siteUrl);
+                        }
                     }
-                }
 
-                for (LinkTask task : tasks) {
-                    task.join();
-                }
+                    // Ожидаем завершения всех задач
+                    for (LinkTask task : tasks) {
+                        task.join();
+                    }
 
-                System.out.println("Indexing completed.");
-            } catch (Exception e) {
-                System.out.println("Error during indexing: " + e.getMessage());
-            } finally {
-                if (!manuallyStopped) {
-                    System.out.println("Indexing completed automatically.");
-                } else {
-                    System.out.println("Indexing stopped by user.");
+                    // Обновляем статус всех сайтов на INDEXED, если индексация прошла успешно
+                    sites.parallelStream().forEach(site -> dataService.updateSiteStatusToIndexed(site.getUrl()));
+
+                    System.out.println("Indexing completed.");
+                } catch (Exception e) {
+                    System.out.println("Error during indexing: " + e.getMessage());
+                } finally {
+                    if (!manuallyStopped) {
+                        System.out.println("Indexing completed automatically.");
+                    } else {
+                        System.out.println("Indexing stopped by user.");
+                    }
+                    isProcessing.set(false); // Индексация завершена
                 }
-                isProcessing.set(false); // Индексация завершена
+            });
+
+            scheduleStopProcessing(); // Планируем остановку индексации через 15 секунд
+        } catch (Exception e) {
+            System.out.println("Error initializing ForkJoinPool: " + e.getMessage());
+        } finally {
+            // Ожидаем завершения всех задач и закрываем пул потоков
+            if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
+                forkJoinPool.shutdown();
             }
-        });
-
-        scheduleStopProcessing();
+        }
     }
+
 
     private void scheduleStopProcessing() {
         int stopDelaySeconds = 15; // Время задержки в секундах
