@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 public class IndexingServiceImpl implements IndexingService {
 
     private final SiteDataExecutor siteDataExecutor;
-    private final SiteService siteService;
+    private final SiteIndexingService siteService;
 
     @Override
     public boolean startIndexing() {

@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
-import searchengine.utils.HtmlLoader;
 
 @RequiredArgsConstructor
 @RestController
@@ -16,7 +15,7 @@ import searchengine.utils.HtmlLoader;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final DataService dataService;
+    private final SiteDataService dataService;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
 

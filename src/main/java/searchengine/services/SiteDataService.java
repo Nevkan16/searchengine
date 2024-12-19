@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
-public class DataService {
+public class SiteDataService {
 
     @PersistenceContext // внедрение Entity Manager в компоненты приложения
     private EntityManager entityManager;
@@ -78,7 +78,7 @@ public class DataService {
         resetAutoIncrement("site");
     }
 
-    // В классе SiteService
+    // В классе SiteIndexingService
     public void updateSiteStatusToIndexed(String siteUrl) {
         Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl); // Получаем сайт по URL
         if (siteEntity.isPresent()) {

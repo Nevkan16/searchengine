@@ -18,14 +18,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
-public class SiteService {
+public class SiteIndexingService {
 
     private ForkJoinPool forkJoinPool = new ForkJoinPool(); // Создаём пул потоков
     private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
-    private final DataService dataService;
+    private final SiteDataService dataService;
     private final PageDataService pageDataService;
 
     public void processSites() {
