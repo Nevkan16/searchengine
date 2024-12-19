@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
-import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.List;
@@ -23,7 +22,6 @@ public class SiteDataExecutor {
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
-    private final PageRepository pageRepository;
     private final PageDataService pageDataService;
 
     public void refreshAllSitesData() {
@@ -42,34 +40,42 @@ public class SiteDataExecutor {
 
         List<Site> configuredSites = dataService.getAllSites();
         if (configuredSites.isEmpty()) {
-            log.info("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
-            dataService.deleteAllSites(); // Удалить все сайты, если список пуст
-            dataService.resetIncrement();
-            isRunning.set(false);
+            handleEmptyConfiguredSites();
             return;
         }
 
         try {
-            // Шаг 1: Удаление сайтов, которых нет в конфигурации
-            dataService.deleteSitesNotInConfig(configuredSites);
-            pageDataService.deleteAllPages();
-            dataService.resetIncrement();
-
-            // Шаг 2: Создание или обновление сайтов
-            configuredSites.forEach(site -> {
-                executorService.submit(() -> {
-                    SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
-                            .orElse(null);
-                    Long siteId = existingSite != null ? existingSite.getId() : null;
-                    dataService.saveOrUpdateSite(site, siteId); // Используем новый метод
-                });
-            });
-
+            deleteSitesNotInConfig(configuredSites);
+            createOrUpdateSites(configuredSites);
             log.info("Обновление данных завершено.");
         } finally {
             shutdownExecutor();
             isRunning.set(false);
         }
+    }
+
+    private void handleEmptyConfiguredSites() {
+        log.info("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
+        dataService.deleteAllSites(); // Удалить все сайты, если список пуст
+        dataService.resetIncrement();
+        isRunning.set(false);
+    }
+
+    private void deleteSitesNotInConfig(List<Site> configuredSites) {
+        log.info("Удаление сайтов, которых нет в конфигурации...");
+        dataService.deleteSitesNotInConfig(configuredSites);
+        pageDataService.deleteAllPages();
+        dataService.resetIncrement();
+    }
+
+    private void createOrUpdateSites(List<Site> configuredSites) {
+        log.info("Создание или обновление сайтов...");
+        configuredSites.forEach(site -> executorService.submit(() -> {
+            SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
+                    .orElse(null);
+            Long siteId = existingSite != null ? existingSite.getId() : null;
+            dataService.saveOrUpdateSite(site, siteId); // Используем новый метод
+        }));
     }
 
     private void shutdownExecutor() {
