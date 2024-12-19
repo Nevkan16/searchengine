@@ -9,6 +9,8 @@ import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
+import java.time.LocalDateTime;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,8 @@ public class PageDataService {
             pageEntity.setPath(path);
             pageEntity.setCode(code);
             pageEntity.setContent(content);
+            site.setStatusTime(LocalDateTime.now());
+            log.info("Текущее время " + site.getStatusTime());
 
             if (!pageRepository.existsByPath(path)) {
                 // Сохраняем страницу в базе данных
@@ -48,7 +52,10 @@ public class PageDataService {
 
     public SiteEntity getSiteEntityByUrl(String url) {
         return siteRepository.findByUrl(url)
-                .orElseThrow(() -> new IllegalArgumentException("Site not found for URL: " + url));
+                .orElseGet(() -> {
+                    log.error("Site not found for URL: {}", url);
+                    return null;
+                });
     }
 
     public void deleteAllPages () {
@@ -58,4 +65,18 @@ public class PageDataService {
             log.info("Ошибка удаления страниц deleteAll");
         }
     }
+
+    @Transactional
+    public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
+        try {
+            siteEntity.setLastError(errorMessage);
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteRepository.save(siteEntity);
+            log.info("Updated lastError for site: {}", siteEntity.getUrl());
+        } catch (Exception e) {
+            log.error("Failed to update lastError for site: {}", siteEntity.getUrl(), e);
+        }
+    }
+
 }

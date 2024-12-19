@@ -72,7 +72,6 @@ public class DataService {
             siteRepository.save(siteEntity);
             System.out.println("Сайт успешно " + (siteId == null ? "создан" : "обновлён") + " в БД: " + site.getUrl());
 
-            validateAndUpdateSiteStatus(siteEntity);
         } catch (Exception e) {
             System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
         }
@@ -120,7 +119,7 @@ public class DataService {
         siteEntity.setLastError(null);
     }
 
-    private void validateAndUpdateSiteStatus(SiteEntity siteEntity) {
+    public void validateAndUpdateSiteStatus(SiteEntity siteEntity) {
         String validationError = validateSite(siteEntity.getUrl());
         if (validationError != null) {
             // Если валидация провалилась
@@ -133,6 +132,10 @@ public class DataService {
         } else {
             System.out.println("Сайт успешно прошёл валидацию: " + siteEntity.getUrl());
         }
+    }
+
+    public void setLastError(SiteEntity siteEntity) {
+
     }
 
 

@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -31,6 +32,7 @@ public class LinkTask extends RecursiveTask<Void> {
 
     @Override
     protected Void compute() {
+        // Проверяем условие для остановки задачи
         if (depth > maxDepth || stopProcessing.get()) {
             return null;
         }
@@ -42,12 +44,14 @@ public class LinkTask extends RecursiveTask<Void> {
             if (!stopProcessing.get()) {
                 invokeAll(subTasks);
             }
+        } catch (CancellationException e) {
+            log.warn("Task for URL {} was cancelled", baseUrl);
         } catch (Exception e) {
-            log.error("Error processing links for: " + baseUrl, e);
+            log.error("Error processing links for: {}", baseUrl, e);
         }
-
         return null;
     }
+
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
         if (stopProcessing.get()) return new HashSet<>();
@@ -65,11 +69,20 @@ public class LinkTask extends RecursiveTask<Void> {
                 log.info("Processing: {}", linkHref);
 
                 try {
-                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref); // Загружаем дочерний документ
-                    savePageToDatabase(linkHref, childDoc); // Сохраняем в БД
+                    // Загружаем дочерний документ
+                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref);
+
+                    if (childDoc == null) {
+                        log.error("Failed to load child document for URL: {}", linkHref);
+                        continue; // Пропускаем текущую ссылку
+                    }
+
+                    savePageToDatabase(linkHref, childDoc);
+
                     subTasks.add(createSubTask(childDoc, linkHref));
-                } catch (IOException e) {
-                    log.error("Failed to load: " + linkHref, e);
+
+                } catch (Exception e) {
+                    log.error("Unexpected error while processing URL: {}", linkHref, e);
                 }
             }
         }
@@ -78,25 +91,28 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private void savePageToDatabase(String url, Document document) {
+        SiteEntity siteEntity = null;
         try {
-            String path = new URI(url).getPath(); // Извлекаем путь из URL
-            int statusCode = 200;                 // HTTP-код ответа по умолчанию
-            String content = document.html();     // HTML-содержимое страницы
+            String path = new URI(url).getPath();
+            int statusCode = 200;
+            String content = document.html();
 
             // Получаем SiteEntity из базы данных
-            SiteEntity siteEntity = pageDataService.getSiteEntityByUrl(baseUrl);
+            siteEntity = pageDataService.getSiteEntityByUrl(baseUrl);
 
-            if (siteEntity != null) {
-                // Сохраняем страницу в базе данных через сервис
-                pageDataService.addPage(siteEntity, path, statusCode, content);
-                log.info("Page saved to database: {}", path);
-            } else {
-                log.warn("SiteEntity not found for URL: {}", baseUrl);
-            }
+            // Сохраняем страницу в базе данных через сервис
+            pageDataService.addPage(siteEntity, path, statusCode, content);
+            log.info("Page saved to database: {}", path);
         } catch (UnexpectedRollbackException e) {
-            log.error("Transaction rollback occurred for page: {}", url); // Убираем stack trace
+            log.error("Transaction rollback occurred for page: {}", url);
+            if (siteEntity != null) {
+                pageDataService.updateSiteError(siteEntity, "Error load child page:");
+            }
         } catch (Exception e) {
-            log.error("Failed to save page to database: " + url, e); // Оставляем stack trace для остальных ошибок
+            log.error("Failed to save page to database: " + url, e);
+            if (siteEntity != null) {
+                pageDataService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
+            }
         }
     }
 

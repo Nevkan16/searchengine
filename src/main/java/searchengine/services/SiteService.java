@@ -99,7 +99,7 @@ public class SiteService {
 
 
     private void scheduleStopProcessing() {
-        int stopDelaySeconds = 15; // Время задержки в секундах
+        int stopDelaySeconds = 100; // Время задержки в секундах
         scheduler.schedule(() -> {
             if (isProcessing.get() && !manuallyStopped) {
                 System.out.println("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
