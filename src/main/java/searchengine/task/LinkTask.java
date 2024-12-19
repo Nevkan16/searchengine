@@ -10,7 +10,7 @@ import searchengine.model.SiteEntity;
 import searchengine.services.PageDataService;
 import searchengine.utils.HtmlLoader;
 
-import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
@@ -90,11 +90,25 @@ public class LinkTask extends RecursiveTask<Void> {
         return subTasks;
     }
 
+    private int getHttpStatusCode(String url) throws Exception {
+        URI uri = new URI(url);
+        HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(5000); // Таймаут на подключение
+        connection.setReadTimeout(5000);    // Таймаут на чтение
+
+        // Отправляем запрос и получаем статус-код
+        int statusCode = connection.getResponseCode();
+        connection.disconnect();
+
+        return statusCode;
+    }
+
     private void savePageToDatabase(String url, Document document) {
         SiteEntity siteEntity = null;
         try {
             String path = new URI(url).getPath();
-            int statusCode = 200;
+            int statusCode = getHttpStatusCode(url);
             String content = document.html();
 
             // Получаем SiteEntity из базы данных
