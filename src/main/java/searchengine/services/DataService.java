@@ -1,10 +1,6 @@
 package searchengine.services;
 
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
@@ -15,7 +11,6 @@ import searchengine.repository.SiteRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -119,25 +114,6 @@ public class DataService {
         siteEntity.setLastError(null);
     }
 
-    public void validateAndUpdateSiteStatus(SiteEntity siteEntity) {
-        String validationError = validateSite(siteEntity.getUrl());
-        if (validationError != null) {
-            // Если валидация провалилась
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-            siteEntity.setLastError(validationError);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteRepository.save(siteEntity);
-
-            System.out.println("Валидация сайта не пройдена: " + siteEntity.getUrl() + " (" + validationError + ")");
-        } else {
-            System.out.println("Сайт успешно прошёл валидацию: " + siteEntity.getUrl());
-        }
-    }
-
-    public void setLastError(SiteEntity siteEntity) {
-
-    }
-
 
     @Transactional
     public void deleteSitesNotInConfig(List<Site> configuredSites) {
@@ -210,21 +186,6 @@ public class DataService {
             resetAutoIncrement("page");
             resetAutoIncrement("site");
 
-        }
-    }
-
-    private String validateSite(String siteUrl) {
-        try {
-            int timeOutInt = 3000;
-            Document doc = Jsoup.connect(siteUrl).timeout(timeOutInt).get();
-            Elements links = doc.select("a[href]");
-
-            if (links.isEmpty()) {
-                return "No links found";
-            }
-            return null; // Сайт валиден
-        } catch (IOException e) {
-            return "Timeout or connection error";
         }
     }
 

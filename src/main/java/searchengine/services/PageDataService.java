@@ -40,16 +40,6 @@ public class PageDataService {
         }
     }
 
-    // Метод для получения URL сайта по ID
-    public String getSiteUrlById(Long id) {
-        SiteEntity site = siteRepository.findById(id).orElse(null);
-        if (site != null) {
-            return site.getUrl();
-        } else {
-            throw new IllegalArgumentException("Site not found");
-        }
-    }
-
     public SiteEntity getSiteEntityByUrl(String url) {
         return siteRepository.findByUrl(url)
                 .orElseGet(() -> {

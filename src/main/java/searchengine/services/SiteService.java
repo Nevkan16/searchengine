@@ -3,18 +3,11 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
-import searchengine.config.Site;
-import searchengine.config.SitesList;
-import searchengine.model.SiteEntity;
-import searchengine.repository.SiteRepository;
 import searchengine.task.LinkTask;
 
-import javax.transaction.Transactional;
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -27,7 +20,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 public class SiteService {
 
-    private final SitesList sitesList;
     private ForkJoinPool forkJoinPool = new ForkJoinPool(); // Создаём пул потоков
     private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
@@ -99,7 +91,7 @@ public class SiteService {
 
 
     private void scheduleStopProcessing() {
-        int stopDelaySeconds = 100; // Время задержки в секундах
+        int stopDelaySeconds = 30; // Время задержки в секундах
         scheduler.schedule(() -> {
             if (isProcessing.get() && !manuallyStopped) {
                 System.out.println("Automatically stopping processing after " + stopDelaySeconds + " seconds...");

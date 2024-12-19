@@ -2,7 +2,6 @@ package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,11 +16,7 @@ import searchengine.utils.HtmlLoader;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final SiteService siteService;
-    private final DummyDataService dummyDataService;
     private final DataService dataService;
-    private final TestService testService;
-    private final HtmlLoader htmlLoader;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
 
@@ -45,17 +40,6 @@ public class ApiController {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация не запущена"));
         }
         return ResponseEntity.ok(new ApiResponse(true, null));
-    }
-
-    // Добавление фиктивных данных
-    @GetMapping("/addDummyData")
-    public ResponseEntity<ApiResponse> addDummyData() {
-        try {
-            dummyDataService.addDummyData();
-            return ResponseEntity.ok(new ApiResponse(true, "Фиктивные данные успешно добавлены"));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при добавлении фиктивных данных"));
-        }
     }
 
     // Удаление данных по URL сайта
