@@ -2,6 +2,7 @@ package searchengine.utils;
 
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
+import org.jsoup.Jsoup;
 
 import java.io.IOException;
 import java.util.*;
@@ -121,13 +122,21 @@ public class Lemmatizer {
         }
     }
 
-//    public static void main(String[] args) throws IOException {
+    public String cleanHtml(String html) {
+        return Jsoup.parse(html).text();
+    }
+
+    public static void main(String[] args) throws IOException {
 //        String text = "Повторное появление леопарда в Осетии позволяет предположить, что леопард постоянно обитает в некоторых районах Северного Кавказа.";
-//        Lemmatizer lemmatizer = new Lemmatizer();
+        Lemmatizer lemmatizer = new Lemmatizer();
 //
 //        HashMap<String, Integer> lemmas = lemmatizer.getLemmasWithCounts(text);
 //        lemmatizer.printLemmasWithCounts(lemmas);
 //        lemmas.forEach((lemma, count) -> System.out.println(lemma + " - " + count));
 //
-//    }
+        String htmlCode = "";
+
+        String cleanText = lemmatizer.cleanHtml(htmlCode);
+        System.out.println(cleanText);
+    }
 }

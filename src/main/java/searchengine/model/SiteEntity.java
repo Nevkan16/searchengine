@@ -43,6 +43,9 @@ public class SiteEntity {
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PageEntity> pages; // Связь с сущностью PageEntity
 
+    @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LemmaEntity> lemmas;
+
     public enum Status {
         INDEXING,
         INDEXED,
