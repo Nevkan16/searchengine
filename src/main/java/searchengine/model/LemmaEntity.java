@@ -3,6 +3,7 @@ package searchengine.model;
 import lombok.Data;
 
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -25,5 +26,5 @@ public class LemmaEntity {
     private Integer frequency;
 
     @OneToMany(mappedBy = "lemma", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<IndexEntity> indexes;
+    private List<IndexEntity> indexes = new ArrayList<>();
 }

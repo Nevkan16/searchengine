@@ -2,9 +2,8 @@ package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import searchengine.constants.ErrorMessages;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
@@ -27,7 +26,7 @@ public class ApiController {
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
         if (!indexingService.startIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация уже запущена"));
+            return ResponseEntity.badRequest().body(new ApiResponse(false, ErrorMessages.INDEXING_NOT_RUNNING));
         }
 
         return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
@@ -36,7 +35,16 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
         if (!indexingService.stopIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, "Индексация не запущена"));
+            return ResponseEntity.badRequest().body(new ApiResponse(
+                    false, ErrorMessages.INDEXING_ALREADY_RUNNING));
+        }
+        return ResponseEntity.ok(new ApiResponse(true, null));
+    }
+    @PostMapping("/indexPage")
+    public ResponseEntity<ApiResponse> indexPage(@RequestParam String url) {
+        if (indexingService.indexPage(url)) {
+            return ResponseEntity.badRequest().body(new ApiResponse(
+                    false, ErrorMessages.PAGE_OUTSIDE_CONFIGURED_SITES));
         }
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
@@ -48,7 +56,8 @@ public class ApiController {
             dataService.deleteSiteData();
             return ResponseEntity.ok(new ApiResponse(true, "Данные сайта успешно удалены"));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(new ApiResponse(false, "Ошибка при удалении фиктивных данных"));
+            return ResponseEntity.status(500).body(new ApiResponse(
+                    false, "Ошибка при удалении фиктивных данных"));
         }
     }
 

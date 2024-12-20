@@ -3,6 +3,8 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import searchengine.model.SiteEntity;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -10,6 +12,8 @@ public class IndexingServiceImpl implements IndexingService {
 
     private final SiteDataExecutor siteDataExecutor;
     private final SiteIndexingService siteIndexingService;
+    private final PageIndexingHelper pageIndexingHelper;
+    private final PageProcessor pageProcessor;
 
     @Override
     public boolean startIndexing() {
@@ -45,7 +49,24 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean indexPage(String url) {
-        log.info("Метод indexPage ещё не реализован.");
-        return false;
+        log.info("Запуск индексации страницы: {}", url);
+
+        try {
+            // Получаем информацию о сайте
+            SiteEntity site = pageIndexingHelper.getSiteByUrl(url);
+
+            // Удаляем существующую страницу, если она есть
+            pageIndexingHelper.deletePageIfExists(url);
+
+            // Процессинг страницы
+            pageProcessor.processPage(url, site.getId());
+
+            log.info("Индексация страницы {} завершена успешно.", url);
+            return true;
+
+        } catch (Exception e) {
+            log.error("Ошибка при индексации страницы {}: {}", url, e.getMessage(), e);
+            return false;
+        }
     }
 }

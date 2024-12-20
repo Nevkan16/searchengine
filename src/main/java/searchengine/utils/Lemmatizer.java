@@ -3,10 +3,11 @@ package searchengine.utils;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 import org.jsoup.Jsoup;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.*;
-
+@Component
 public class Lemmatizer {
 
     private static final Set<String> EXCLUDED_POS_TAGS = new HashSet<>(Arrays.asList(

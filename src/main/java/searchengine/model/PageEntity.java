@@ -3,6 +3,7 @@ package searchengine.model;
 import lombok.Data;
 
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -29,5 +30,5 @@ public class PageEntity {
     private String content;
 
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<IndexEntity> indexes;
+    private List<IndexEntity> indexes = new ArrayList<>();
 }

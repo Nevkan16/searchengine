@@ -12,6 +12,10 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+logging:
+  level:
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+
 
 indexing-settings:
   sites:
