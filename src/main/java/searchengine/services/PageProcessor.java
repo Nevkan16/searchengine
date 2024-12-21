@@ -27,6 +27,7 @@ public class PageProcessor {
     private final FakeConfig fakeConfig;
     private final LemmaCRUDService lemmaCRUDService;
     private final IndexCRUDService indexCRUDService;
+    private final PageCRUDService pageCRUDService;
 
     @Transactional
     public void processPage(String url, Long siteId) throws IOException {
@@ -50,12 +51,10 @@ public class PageProcessor {
         String htmlContent = document.html();
         String textContent = lemmatizer.cleanHtml(htmlContent);
 
-        // Сохранение страницы в таблицу page
-        PageEntity page = new PageEntity();
-        page.setSite(site);
-        page.setPath(url);
-        page.setCode(httpStatus); // Устанавливаем HTTP-статус
-        page.setContent(htmlContent);
+        // Используем метод для создания страницы
+        PageEntity page = pageCRUDService.createPageEntity(site, url, httpStatus, htmlContent);
+
+        // Сохраняем страницу
         pageRepository.save(page);
 
         // Получение лемм и их количества
@@ -77,4 +76,3 @@ public class PageProcessor {
         pageRepository.save(page);
     }
 }
-

@@ -21,27 +21,50 @@ public class PageCRUDService {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
 
+    // Метод для создания объекта PageEntity
+    public PageEntity createPageEntity(SiteEntity site, String path, int code, String content) {
+        PageEntity pageEntity = new PageEntity();
+        pageEntity.setSite(site);
+        pageEntity.setPath(path);
+        pageEntity.setCode(code);
+        pageEntity.setContent(content);
+        return pageEntity;
+    }
+
+    // Остальной код остается без изменений, используем createPageEntity где нужно
+
     @Transactional
-    public void addPage(SiteEntity site, String path, int code, String content) {
+    public void create(SiteEntity site, String path, int code, String content) {
         try {
-            PageEntity pageEntity = new PageEntity();
-            pageEntity.setSite(site);
-            pageEntity.setPath(path);
-            pageEntity.setCode(code);
-            pageEntity.setContent(content);
+            PageEntity pageEntity = createPageEntity(site, path, code, content);
             site.setStatusTime(LocalDateTime.now());
             log.info("Текущее время: {}", site.getStatusTime());
 
-            if (!pageRepository.existsByPath(path)) {
-                pageRepository.save(pageEntity); // Сохраняем страницу в базе данных
-            } else {
-                log.info("Страница уже существует");
-            }
+            // Сохраняем страницу
+            pageRepository.save(pageEntity);
+            log.info("Страница успешно создана по пути: {}", path);
         } catch (Exception e) {
-            log.error("Ошибка при сохранении страницы: {}", e.getMessage()); // Краткий лог
+            log.error("Ошибка при сохранении страницы: {}", e.getMessage());
         }
     }
 
+    @Transactional
+    public void createPageIfNotExists(SiteEntity site, String path, int code, String content) {
+        try {
+            // Проверка существования страницы и создание, если не существует
+            if (!pageRepository.existsByPath(path)) {
+                PageEntity pageEntity = createPageEntity(site, path, code, content);
+                site.setStatusTime(LocalDateTime.now());
+                log.info("Текущее время: {}", site.getStatusTime());
+
+                pageRepository.save(pageEntity); // Сохраняем страницу
+            } else {
+                log.info("Страница уже существует по пути: {}", path);
+            }
+        } catch (Exception e) {
+            log.error("Ошибка при проверке и сохранении страницы: {}", e.getMessage());
+        }
+    }
 
     public Optional<PageEntity> getPageByPath(String path) {
         return pageRepository.findByPath(path);

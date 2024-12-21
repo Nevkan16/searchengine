@@ -89,8 +89,6 @@ public class LinkTask extends RecursiveTask<Void> {
         return subTasks;
     }
 
-
-
     private void savePageToDatabase(String url, Document document) {
         SiteEntity siteEntity = null;
         try {
@@ -109,7 +107,7 @@ public class LinkTask extends RecursiveTask<Void> {
             siteEntity = pageCRUDService.getSiteEntityByUrl(baseUrl);
 
             // Сохраняем страницу в базе данных через сервис
-            pageCRUDService.addPage(siteEntity, path, statusCode, content);
+            pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
             log.info("Page saved to database: {}", path);
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
