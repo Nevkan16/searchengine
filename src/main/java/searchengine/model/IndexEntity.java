@@ -7,7 +7,7 @@ import javax.persistence.*;
 @Data
 @Entity
 @Table(
-        name = "`index`",
+        name = "index_table",
         uniqueConstraints = @UniqueConstraint(columnNames = {"page_id", "lemma_id"})
 )
 public class IndexEntity {
@@ -25,6 +25,6 @@ public class IndexEntity {
     @JoinColumn(name = "lemma_id", nullable = false)
     private LemmaEntity lemma;
 
-    @Column(name = "`rank`", nullable = false) // Имя обернуто в обратные кавычки
+    @Column(name = "rank_in", nullable = false)
     private Float rank;
 }

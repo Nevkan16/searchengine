@@ -35,8 +35,6 @@ public class SiteDataService {
     @Autowired
     private SitesList sitesList;
 
-//    @Autowired
-//    private AutoIncrementService autoIncrementService;
 
     public List<Site> getAllSites() {
         List<Site> allSites = sitesList.getSites();
@@ -94,7 +92,7 @@ public class SiteDataService {
     public void resetIncrement() {
         resetAutoIncrement("page");
         resetAutoIncrement("site");
-        resetAutoIncrement("`index`");
+        resetAutoIncrement("index_table");
         resetAutoIncrement("lemma");
     }
 

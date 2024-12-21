@@ -17,6 +17,7 @@ public class ApiController {
     private final SiteDataService dataService;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
+    private final SiteDataService siteDataService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -65,6 +66,16 @@ public class ApiController {
     public ResponseEntity<ApiResponse> someRequest() {
         try {
             siteDataExecutor.refreshAllSitesData();
+            return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
+        }
+    }
+
+    @GetMapping("/resetInc")
+    public ResponseEntity<ApiResponse> resetIncrement() {
+        try {
+            siteDataService.resetIncrement();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));

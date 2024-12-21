@@ -25,10 +25,6 @@ public class PageIndexingHelper {
         pageRepository.findByPath(url).ifPresent(pageRepository::delete);
     }
 
-    public String extractSiteName(String url) {
-        return url.replaceAll("https?://(www\\.)?", "").split("/")[0];
-    }
-
     public String getSiteNameFromConfig(String url) {
         for (Site site : sitesList.getSites()) {
             if (site.getUrl().equals(url)) {
