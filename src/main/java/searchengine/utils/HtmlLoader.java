@@ -1,6 +1,5 @@
 package searchengine.utils;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -8,17 +7,18 @@ import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class HtmlLoader {
-    private final FakeConfig fakeConfig;
 
-    public Document fetchHtmlDocument(String url) {
+    public Document fetchHtmlDocument(String url, FakeConfig fakeConfig) {
         try {
             Thread.sleep(1000); // Задержка для предотвращения блокировки
             return Jsoup.connect(url)
-                    .userAgent(fakeConfig.getUserAgent())
+                    .userAgent(fakeConfig.getUserAgent()) // Использование значений из FakeConfig
                     .referrer(fakeConfig.getReferrer())
                     .get();
         } catch (IOException e) {
@@ -32,7 +32,21 @@ public class HtmlLoader {
         return null; // Возвращаем null в случае ошибки
     }
 
-    public void showHtml(String url) throws IOException {
-        System.out.println(fetchHtmlDocument(url));
+    public void showHtml(String url, FakeConfig fakeConfig) throws IOException {
+        System.out.println(fetchHtmlDocument(url, fakeConfig));
+    }
+
+    public int getHttpStatusCode(String url) throws Exception {
+        URI uri = new URI(url);
+        HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(5000); // Таймаут на подключение
+        connection.setReadTimeout(5000);    // Таймаут на чтение
+
+        // Отправляем запрос и получаем статус-код
+        int statusCode = connection.getResponseCode();
+        connection.disconnect();
+
+        return statusCode;
     }
 }

@@ -6,10 +6,12 @@ import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import searchengine.config.FakeConfig;
 import searchengine.model.*;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
@@ -25,14 +27,28 @@ public class PageProcessor {
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
     private final Lemmatizer lemmatizer;
+    private final HtmlLoader htmlLoader;
+    private final FakeConfig fakeConfig;
 
     @Transactional
     public void processPage(String url, Long siteId) throws IOException {
         SiteEntity site = siteRepository.findById(siteId)
                 .orElseThrow(() -> new IllegalArgumentException("Site not found"));
 
-        // Загрузка HTML-страницы
-        Document document = Jsoup.connect(url).get();
+        // Загрузка HTML-страницы с использованием HtmlLoader
+        Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
+        if (document == null) {
+            throw new IOException("Failed to load HTML document for URL: " + url);
+        }
+
+        // Получение HTTP-статуса
+        int httpStatus;
+        try {
+            httpStatus = htmlLoader.getHttpStatusCode(url);
+        } catch (Exception e) {
+            throw new IOException("Failed to get HTTP status code for URL: " + url, e);
+        }
+
         String htmlContent = document.html();
         String textContent = lemmatizer.cleanHtml(htmlContent);
 
@@ -40,7 +56,7 @@ public class PageProcessor {
         PageEntity page = new PageEntity();
         page.setSite(site);
         page.setPath(url);
-        page.setCode(200); // HTTP статус страницы
+        page.setCode(httpStatus); // Устанавливаем HTTP-статус
         page.setContent(htmlContent);
         pageRepository.save(page);
 
@@ -62,11 +78,7 @@ public class PageProcessor {
                         return newLemma;
                     });
 
-            if (lemma.getId() != null) {
-                lemma.setFrequency(lemma.getFrequency() + 1);
-            } else {
-                lemma.setFrequency(1);
-            }
+            lemma.setFrequency(lemma.getFrequency() + 1);
             lemmaRepository.save(lemma);
 
             // Добавление записи в таблицу index
@@ -81,4 +93,3 @@ public class PageProcessor {
         pageRepository.save(page);
     }
 }
-
