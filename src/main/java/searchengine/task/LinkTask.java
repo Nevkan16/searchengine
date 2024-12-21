@@ -7,10 +7,9 @@ import org.jsoup.nodes.Element;
 import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
 import searchengine.model.SiteEntity;
-import searchengine.services.PageDataService;
+import searchengine.services.PageCRUDService;
 import searchengine.utils.HtmlLoader;
 
-import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
@@ -28,7 +27,7 @@ public class LinkTask extends RecursiveTask<Void> {
     private final int depth;         // Текущая глубина
     private final int maxDepth;      // Максимальная глубина
     private final FakeConfig fakeConfig;
-    private final PageDataService pageDataService; // Сервис для сохранения страниц
+    private final PageCRUDService pageCRUDService; // Сервис для сохранения страниц
 
     @Override
     protected Void compute() {
@@ -107,20 +106,20 @@ public class LinkTask extends RecursiveTask<Void> {
             }
 
             // Получаем SiteEntity из базы данных
-            siteEntity = pageDataService.getSiteEntityByUrl(baseUrl);
+            siteEntity = pageCRUDService.getSiteEntityByUrl(baseUrl);
 
             // Сохраняем страницу в базе данных через сервис
-            pageDataService.addPage(siteEntity, path, statusCode, content);
+            pageCRUDService.addPage(siteEntity, path, statusCode, content);
             log.info("Page saved to database: {}", path);
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {
-                pageDataService.updateSiteError(siteEntity, "Error load child page:");
+                pageCRUDService.updateSiteError(siteEntity, "Error load child page:");
             }
         } catch (Exception e) {
             log.error("Failed to save page to database: " + url, e);
             if (siteEntity != null) {
-                pageDataService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
+                pageCRUDService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
             }
         }
     }
@@ -141,7 +140,7 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, pageDataService);
+        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, pageCRUDService);
     }
 
     public static void resetStopFlag() {

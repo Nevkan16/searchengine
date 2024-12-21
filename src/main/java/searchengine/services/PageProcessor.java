@@ -1,22 +1,19 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.FakeConfig;
-import searchengine.model.*;
-import searchengine.repository.LemmaRepository;
+import searchengine.model.LemmaEntity;
+import searchengine.model.PageEntity;
+import searchengine.model.SiteEntity;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -24,11 +21,12 @@ import java.util.Map;
 public class PageProcessor {
 
     private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
     private final Lemmatizer lemmatizer;
     private final HtmlLoader htmlLoader;
     private final FakeConfig fakeConfig;
+    private final LemmaCRUDService lemmaCRUDService;
+    private final IndexCRUDService indexCRUDService;
 
     @Transactional
     public void processPage(String url, Long siteId) throws IOException {
@@ -68,28 +66,15 @@ public class PageProcessor {
             String lemmaText = entry.getKey();
             Integer count = entry.getValue();
 
-            // Обновление таблицы lemma
-            LemmaEntity lemma = lemmaRepository.findByLemmaAndSite(lemmaText, site)
-                    .orElseGet(() -> {
-                        LemmaEntity newLemma = new LemmaEntity();
-                        newLemma.setLemma(lemmaText);
-                        newLemma.setFrequency(0);
-                        newLemma.setSite(site);
-                        return newLemma;
-                    });
+            // Создать или обновить лемму
+            LemmaEntity lemma = lemmaCRUDService.createOrUpdateLemma(lemmaText, site);
 
-            lemma.setFrequency(lemma.getFrequency() + 1);
-            lemmaRepository.save(lemma);
-
-            // Добавление записи в таблицу index
-            IndexEntity index = new IndexEntity();
-            index.setPage(page);
-            index.setLemma(lemma);
-            index.setRank(count.floatValue());
-            page.getIndexes().add(index);
+            // Создать индекс
+            indexCRUDService.createIndex(page, lemma, count.floatValue());
         }
 
         // Обновление страницы с учетом связок
         pageRepository.save(page);
     }
 }
+

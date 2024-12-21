@@ -22,7 +22,7 @@ public class SiteDataExecutor {
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
-    private final PageDataService pageDataService;
+    private final PageCRUDService pageCRUDService;
 //    private final AutoIncrementService autoIncrementService;
 
     public void refreshAllSitesData() {
@@ -65,7 +65,7 @@ public class SiteDataExecutor {
     private void deleteSitesNotInConfig(List<Site> configuredSites) {
         log.info("Удаление сайтов, которых нет в конфигурации...");
         dataService.deleteSitesNotInConfig(configuredSites);
-        pageDataService.deleteAllPages();
+        pageCRUDService.deleteAllPages();
         dataService.resetIncrement();
     }
 
