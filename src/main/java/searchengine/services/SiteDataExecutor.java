@@ -23,6 +23,7 @@ public class SiteDataExecutor {
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
     private final PageDataService pageDataService;
+//    private final AutoIncrementService autoIncrementService;
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
@@ -73,8 +74,15 @@ public class SiteDataExecutor {
         configuredSites.forEach(site -> executorService.submit(() -> {
             SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
                     .orElse(null);
-            Long siteId = existingSite != null ? existingSite.getId() : null;
-            dataService.saveOrUpdateSite(site, siteId); // Используем новый метод
+            if (existingSite != null) {
+                // Если сайт существует, обновляем его
+                log.info("Обновление сайта: " + site.getUrl());
+                dataService.updateSite(existingSite.getId(), site); // Используем метод updateSite
+            } else {
+                // Если сайт не существует, создаём новый
+                log.info("Создание нового сайта: " + site.getUrl());
+                dataService.createSite(site); // Используем метод createSite
+            }
         }));
     }
 

@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import searchengine.config.Site;
 import searchengine.model.SiteEntity;
 
 @Slf4j
@@ -14,6 +15,8 @@ public class IndexingServiceImpl implements IndexingService {
     private final SiteIndexingService siteIndexingService;
     private final PageIndexingHelper pageIndexingHelper;
     private final PageProcessor pageProcessor;
+    private final SiteDataService siteDataService;
+//    private final AutoIncrementService autoIncrementService;
 
     @Override
     public boolean startIndexing() {
@@ -51,9 +54,36 @@ public class IndexingServiceImpl implements IndexingService {
     public boolean indexPage(String url) {
         log.info("Запуск индексации страницы: {}", url);
 
+        // Проверка на пустой или некорректный URL
+        if (url == null || url.trim().isEmpty()) {
+            log.error("URL не может быть пустым или null.");
+            return false;
+        }
+
         try {
             // Получаем информацию о сайте
             SiteEntity site = pageIndexingHelper.getSiteByUrl(url);
+
+            // Если сайт не найден, создаём новый
+            if (site == null) {
+                log.info("Сайт с URL {} не найден в базе, создаём новый.", url);
+
+                // Получение имени сайта из конфигурации
+                String siteName = pageIndexingHelper.getSiteNameFromConfig(url);
+                if (siteName == null) {
+                    log.error("Не удалось найти имя для сайта с URL: {}", url);
+                    return false;
+                }
+
+                // Создаем новый сайт с данными из конфигурации
+                Site newSite = new Site();
+                newSite.setUrl(url);
+                newSite.setName(siteName);
+                siteDataService.createSite(newSite);
+
+                // После создания нового сайта получаем его из базы
+                site = pageIndexingHelper.getSiteByUrl(url);
+            }
 
             // Удаляем существующую страницу, если она есть
             pageIndexingHelper.deletePageIfExists(url);

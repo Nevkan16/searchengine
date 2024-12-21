@@ -53,7 +53,7 @@ public class ApiController {
     @GetMapping("/deleteSiteData")
     public ResponseEntity<ApiResponse> deleteSiteData() {
         try {
-            dataService.deleteSiteData();
+            dataService.deleteAllSites();
             return ResponseEntity.ok(new ApiResponse(true, "Данные сайта успешно удалены"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(

@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.model.SiteEntity;
+import searchengine.repository.IndexRepository;
+import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
@@ -27,21 +29,26 @@ public class SiteDataService {
     private PageRepository pageRepository;
 
     @Autowired
+    private LemmaRepository lemmaRepository;
+    @Autowired
+    private IndexRepository indexRepository;
+    @Autowired
     private SitesList sitesList;
+
+//    @Autowired
+//    private AutoIncrementService autoIncrementService;
 
     public List<Site> getAllSites() {
         List<Site> allSites = sitesList.getSites();
-
         if (allSites == null || allSites.isEmpty()) {
-            return Collections.emptyList(); // Возвращаем пустой список, если сайтов нет
+            return Collections.emptyList();
         }
 
-        Set<String> uniqueUrls = new HashSet<>(); // Для отслеживания уникальных URL
+        Set<String> uniqueUrls = new HashSet<>();
         List<Site> validSites = new ArrayList<>();
-
         for (Site site : allSites) {
             if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
-                if (uniqueUrls.add(site.getUrl())) { // Добавляем только уникальные URL
+                if (uniqueUrls.add(site.getUrl())) {
                     validSites.add(site);
                 }
             }
@@ -49,61 +56,56 @@ public class SiteDataService {
         return validSites;
     }
 
+    // Создание нового сайта
     @Transactional
-    public void saveOrUpdateSite(Site site, Long siteId) {
-        System.out.println(siteId == null
-                ? "Создание новой записи о сайте: " + site.getUrl()
-                : "Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
+    public void createSite(Site site) {
+        System.out.println("Создание новой записи о сайте: " + site.getUrl());
+        SiteEntity siteEntity = new SiteEntity();
+        populateSiteEntity(siteEntity, site);
+        siteRepository.save(siteEntity);
+    }
 
-        SiteEntity siteEntity = findOrCreateSiteEntity(site, siteId);
+    // Обновление информации о сайте
+    @Transactional
+    public void updateSite(Long siteId, Site site) {
+        System.out.println("Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
+        SiteEntity siteEntity = siteRepository.findById(siteId)
+                .orElseThrow(() -> new IllegalArgumentException("Сайт не найден для обновления"));
+        populateSiteEntity(siteEntity, site);
+        siteRepository.save(siteEntity);
+    }
 
-        if (siteEntity == null) {
-            System.out.println("Сайт уже существует в БД: " + site.getUrl());
-            return;
-        }
+    // Получение сайта по ID
+    public Optional<SiteEntity> getSiteById(Long siteId) {
+        return siteRepository.findById(siteId);
+    }
 
-        try {
-            populateSiteEntity(siteEntity, site);
-            siteRepository.save(siteEntity);
-            System.out.println("Сайт успешно " + (siteId == null ? "создан" : "обновлён") + " в БД: " + site.getUrl());
-
-        } catch (Exception e) {
-            System.out.println("Ошибка при сохранении сайта в БД: " + e.getMessage());
-        }
+    // Удаление сайта по ID
+    @Transactional
+    public void deleteSite(Long siteId) {
+        SiteEntity siteEntity = siteRepository.findById(siteId)
+                .orElseThrow(() -> new IllegalArgumentException("Сайт не найден для удаления"));
+        pageRepository.deleteBySite(siteEntity);
+        siteRepository.delete(siteEntity);
+        System.out.println("Сайт удалён: " + siteEntity.getUrl());
     }
 
     @Transactional
     public void resetIncrement() {
         resetAutoIncrement("page");
         resetAutoIncrement("site");
+        resetAutoIncrement("`index`");
+        resetAutoIncrement("lemma");
     }
 
     // В классе SiteIndexingService
     public void updateSiteStatusToIndexed(String siteUrl) {
-        Optional<SiteEntity> siteEntity = siteRepository.findByUrl(siteUrl); // Получаем сайт по URL
-        if (siteEntity.isPresent()) {
-            SiteEntity indexedSite = siteEntity.get();
-            indexedSite.setStatus(SiteEntity.Status.INDEXED);
-            indexedSite.setStatusTime(LocalDateTime.now());
-            siteRepository.save(indexedSite);
-            System.out.println("Site status updated to INDEXED: " + siteUrl);
-        } else {
-            System.out.println("Site not found: " + siteUrl);
-        }
-    }
-
-
-    private SiteEntity findOrCreateSiteEntity(Site site, Long siteId) {
-        SiteEntity siteEntity = siteId != null
-                ? siteRepository.findById(siteId).orElse(null)
-                : null;
-
-        if (siteEntity == null && siteRepository.findByUrl(site.getUrl()).isPresent()) {
-            // Если сайт не найден по ID и уже существует по URL
-            return null;
-        }
-
-        return siteEntity != null ? siteEntity : new SiteEntity();
+        SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
+                .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
+        siteEntity.setStatus(SiteEntity.Status.INDEXED);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        siteRepository.save(siteEntity);
+        System.out.println("Статус сайта обновлён на INDEXED: " + siteUrl);
     }
 
     private void populateSiteEntity(SiteEntity siteEntity, Site site) {
@@ -114,21 +116,15 @@ public class SiteDataService {
         siteEntity.setLastError(null);
     }
 
-
     @Transactional
     public void deleteSitesNotInConfig(List<Site> configuredSites) {
         System.out.println("Удаление сайтов, отсутствующих в конфигурации...");
-
-        // Получаем все сайты из базы данных
         List<SiteEntity> allSitesInDb = siteRepository.findAll();
-
-        // Собираем URL сайтов из конфигурации
         Set<String> configuredUrls = new HashSet<>();
         for (Site site : configuredSites) {
             configuredUrls.add(site.getUrl());
         }
 
-        // Фильтруем сайты, которых нет в конфигурации
         List<SiteEntity> sitesToDelete = new ArrayList<>();
         for (SiteEntity siteEntity : allSitesInDb) {
             if (!configuredUrls.contains(siteEntity.getUrl())) {
@@ -136,7 +132,6 @@ public class SiteDataService {
             }
         }
 
-        // Удаляем сайты из базы данных
         for (SiteEntity siteToDelete : sitesToDelete) {
             System.out.println("Удаляем сайт: " + siteToDelete.getUrl());
             pageRepository.deleteBySite(siteToDelete);
@@ -152,6 +147,8 @@ public class SiteDataService {
 
         pageRepository.deleteAll();
         siteRepository.deleteAll();
+        lemmaRepository.deleteAll();
+        indexRepository.deleteAll();
 
         System.out.println("Все сайты удалены из базы данных.");
     }
@@ -195,6 +192,7 @@ public class SiteDataService {
             System.out.println("No sites with status INDEXING found.");
             return new ArrayList<>();
         }
+
         List<String> sitesForIndexing = new ArrayList<>();
         for (SiteEntity siteEntity : indexingSites) {
             sitesForIndexing.add(siteEntity.getUrl());
