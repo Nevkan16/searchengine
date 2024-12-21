@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class SiteDataExecutor {
 
-    private final SiteDataService dataService;
+    private final SiteCRUDService dataService;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;

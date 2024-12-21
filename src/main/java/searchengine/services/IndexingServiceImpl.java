@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
+import searchengine.utils.ConfigUtil;
 
 @Slf4j
 @Service
@@ -13,10 +14,10 @@ public class IndexingServiceImpl implements IndexingService {
 
     private final SiteDataExecutor siteDataExecutor;
     private final SiteIndexingService siteIndexingService;
-    private final PageIndexingHelper pageIndexingHelper;
     private final PageProcessor pageProcessor;
-    private final SiteDataService siteDataService;
-//    private final AutoIncrementService autoIncrementService;
+    private final SiteCRUDService siteCRUDService;
+    private final PageCRUDService pageCRUDService;
+    private final ConfigUtil configUtil;
 
     @Override
     public boolean startIndexing() {
@@ -62,14 +63,14 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             // Получаем информацию о сайте
-            SiteEntity site = pageIndexingHelper.getSiteByUrl(url);
+            SiteEntity site = siteCRUDService.getSiteByUrl(url);
 
             // Если сайт не найден, создаём новый
             if (site == null) {
                 log.info("Сайт с URL {} не найден в базе, создаём новый.", url);
 
                 // Получение имени сайта из конфигурации
-                String siteName = pageIndexingHelper.getSiteNameFromConfig(url);
+                String siteName = configUtil.getSiteNameFromConfig(url);
                 if (siteName == null) {
                     log.error("Не удалось найти имя для сайта с URL: {}", url);
                     return false;
@@ -79,14 +80,14 @@ public class IndexingServiceImpl implements IndexingService {
                 Site newSite = new Site();
                 newSite.setUrl(url);
                 newSite.setName(siteName);
-                siteDataService.createSite(newSite);
+                siteCRUDService.createSite(newSite);
 
                 // После создания нового сайта получаем его из базы
-                site = pageIndexingHelper.getSiteByUrl(url);
+                site = siteCRUDService.getSiteByUrl(url);
             }
 
             // Удаляем существующую страницу, если она есть
-            pageIndexingHelper.deletePageIfExists(url);
+            pageCRUDService.deletePageIfExists(url);
 
             // Процессинг страницы
             pageProcessor.processPage(url, site.getId());

@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
-public class SiteDataService {
+public class SiteCRUDService {
 
     @PersistenceContext // внедрение Entity Manager в компоненты приложения
     private EntityManager entityManager;
@@ -205,5 +205,9 @@ public class SiteDataService {
             siteEntity.setLastError("Индексация остановлена пользователем");
             siteRepository.save(siteEntity);
         }
+    }
+
+    public SiteEntity getSiteByUrl(String url) {
+        return siteRepository.findByUrl(url).orElse(null);
     }
 }

@@ -14,10 +14,10 @@ import searchengine.services.*;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final SiteDataService dataService;
+    private final SiteCRUDService dataService;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
-    private final SiteDataService siteDataService;
+    private final SiteCRUDService siteDataService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {

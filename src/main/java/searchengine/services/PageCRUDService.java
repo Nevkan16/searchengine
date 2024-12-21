@@ -125,4 +125,8 @@ public class PageCRUDService {
             log.error("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl(), e);
         }
     }
+
+    public void deletePageIfExists(String url) {
+        pageRepository.findByPath(url).ifPresent(pageRepository::delete);
+    }
 }

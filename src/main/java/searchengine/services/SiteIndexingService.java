@@ -26,7 +26,7 @@ public class SiteIndexingService {
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
-    private final SiteDataService dataService;
+    private final SiteCRUDService dataService;
     private final PageCRUDService pageCRUDService;
 
     public void processSites() {
