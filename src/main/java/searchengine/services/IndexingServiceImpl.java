@@ -67,12 +67,12 @@ public class IndexingServiceImpl implements IndexingService {
 
             // Если сайт не найден, создаём новый
             if (site == null) {
-                log.info("Сайт с URL {} не найден в базе, создаём новый.", url);
+                log.info("Сайт с URL {} не найден в базе, обрабатываем...", url);
 
                 // Получение имени сайта из конфигурации
                 String siteName = configUtil.getSiteNameFromConfig(url);
                 if (siteName == null) {
-                    log.error("Не удалось найти имя для сайта с URL: {}", url);
+                    log.error("Сайт не найден в файле конфигурации.: {}", url);
                     return false;
                 }
 

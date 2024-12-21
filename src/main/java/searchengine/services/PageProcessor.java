@@ -15,6 +15,7 @@ import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,48 +32,61 @@ public class PageProcessor {
 
     @Transactional
     public void processPage(String url, Long siteId) throws IOException {
-        SiteEntity site = siteRepository.findById(siteId)
-                .orElseThrow(() -> new IllegalArgumentException("Site not found"));
+        SiteEntity site = getSiteById(siteId);
+        Document document = loadHtmlDocument(url);
+        int httpStatus = getHttpStatus(url);
+        String htmlContent = document.html();
+        String textContent = lemmatizer.cleanHtml(htmlContent);
 
-        // Загрузка HTML-страницы с использованием HtmlLoader
+        removeExistingPageIfPresent(site, url);
+
+        PageEntity page = createAndSavePage(site, url, httpStatus, htmlContent);
+        processLemmasAndIndexes(page, site, textContent);
+    }
+
+    private SiteEntity getSiteById(Long siteId) {
+        return siteRepository.findById(siteId)
+                .orElseThrow(() -> new IllegalArgumentException("Site not found"));
+    }
+
+    private Document loadHtmlDocument(String url) throws IOException {
         Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
         if (document == null) {
             throw new IOException("Failed to load HTML document for URL: " + url);
         }
+        return document;
+    }
 
-        // Получение HTTP-статуса
-        int httpStatus;
+    private int getHttpStatus(String url) throws IOException {
         try {
-            httpStatus = htmlLoader.getHttpStatusCode(url);
+            return htmlLoader.getHttpStatusCode(url);
         } catch (Exception e) {
             throw new IOException("Failed to get HTTP status code for URL: " + url, e);
         }
+    }
 
-        String htmlContent = document.html();
-        String textContent = lemmatizer.cleanHtml(htmlContent);
+    private void removeExistingPageIfPresent(SiteEntity site, String url) {
+        Optional<PageEntity> existingPageOptional = pageRepository.findBySiteAndPath(site, url);
+        if (existingPageOptional.isPresent()) {
+            PageEntity existingPage = existingPageOptional.get();
+            existingPage.getIndexes().forEach(indexCRUDService::deleteIndex);
+            pageRepository.delete(existingPage);
+        }
+    }
 
-        // Используем метод для создания страницы
+    private PageEntity createAndSavePage(SiteEntity site, String url, int httpStatus, String htmlContent) {
         PageEntity page = pageCRUDService.createPageEntity(site, url, httpStatus, htmlContent);
+        return pageRepository.save(page);
+    }
 
-        // Сохраняем страницу
-        pageRepository.save(page);
-
-        // Получение лемм и их количества
+    private void processLemmasAndIndexes(PageEntity page, SiteEntity site, String textContent) {
         Map<String, Integer> lemmasCount = lemmatizer.getLemmasCount(textContent);
-
-        // Обработка лемм и связок "лемма-страница"
         for (Map.Entry<String, Integer> entry : lemmasCount.entrySet()) {
             String lemmaText = entry.getKey();
             Integer count = entry.getValue();
 
-            // Создать или обновить лемму
-            LemmaEntity lemma = lemmaCRUDService.createOrUpdateLemma(lemmaText, site);
-
-            // Создать индекс
+            LemmaEntity lemma = lemmaCRUDService.updateLemmaEntity(lemmaText, site);
             indexCRUDService.createIndex(page, lemma, count.floatValue());
         }
-
-        // Обновление страницы с учетом связок
-        pageRepository.save(page);
     }
 }
