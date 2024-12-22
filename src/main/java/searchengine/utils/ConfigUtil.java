@@ -2,6 +2,7 @@ package searchengine.utils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -12,9 +13,21 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 @Component
 public class ConfigUtil {
+
+    // Регулярное выражение для проверки общих URL
     private static final Pattern URL_PATTERN = Pattern.compile(
-            "^(https?://)?(www\\.)?[a-zA-Z0-9-]+\\.[a-zA-Z]{2,}(/.*)?$");
+            "^(https?://)?(www\\.)?[a-zA-Z0-9-]+\\.[a-zA-Z]{2,}(:\\d+)?(/.*)?$");
+
+    // Регулярное выражение для проверки localhost
+    private static final Pattern LOCALHOST_PATTERN = Pattern.compile(
+            "^http://localhost(:\\d+)?(/.*)?$");
+
     private final SitesList sitesList;
+
+    // Порт из конфигурации
+    @Value("${server.port}")
+    private int serverPort;
+
     public String getSiteNameFromConfig(String url) {
         if (sitesList == null || sitesList.getSites().isEmpty()) {
             log.info("Список сайтов пуст или не инициализирован.");
@@ -62,16 +75,27 @@ public class ConfigUtil {
             url = "https://" + url;
         }
 
+        // Если URL содержит localhost без порта, добавляем порт из конфигурации
+        if (isLocalhostURL(url) && !url.contains(":")) {
+            url = url + ":" + serverPort;
+        }
+
         // Убираем завершающий символ "/"
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
-
     private boolean isValidURL(String url) {
-        boolean isValid = URL_PATTERN.matcher(url).matches();
-        if (!isValid) {
+        boolean isGeneralURL = URL_PATTERN.matcher(url).matches();
+        boolean isLocalhost = isLocalhostURL(url);
+
+        if (!isGeneralURL && !isLocalhost) {
             log.info("URL имеет неверный формат: {}", url);
         }
-        return isValid;
+
+        return isGeneralURL || isLocalhost;
+    }
+
+    private boolean isLocalhostURL(String url) {
+        return LOCALHOST_PATTERN.matcher(url).matches();
     }
 }
