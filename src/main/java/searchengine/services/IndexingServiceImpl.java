@@ -3,9 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
 import searchengine.model.SiteEntity;
-import searchengine.utils.ConfigUtil;
 
 @Slf4j
 @Service
@@ -17,11 +15,9 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageProcessor pageProcessor;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
-    private final ConfigUtil configUtil;
 
     @Override
     public boolean startIndexing() {
-        // Используем метод siteService для проверки текущего статуса индексации
         if (siteIndexingService.isIndexing()) {
             log.info("Индексация уже запущена.");
             return false;
@@ -30,7 +26,7 @@ public class IndexingServiceImpl implements IndexingService {
         try {
             log.info("Запуск процесса индексации...");
             siteDataExecutor.refreshAllSitesData();
-            siteIndexingService.processSites(); // Запускаем процесс индексации
+            siteIndexingService.processSites();
             return true;
         } catch (Exception e) {
             log.error("Ошибка при запуске индексации: {}", e.getMessage());
@@ -40,7 +36,6 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean stopIndexing() {
-        // Проверяем, выполняется ли индексация через siteService
         if (!siteIndexingService.isIndexing()) {
             log.info("Индексация не запущена.");
             return false;
@@ -55,54 +50,18 @@ public class IndexingServiceImpl implements IndexingService {
     public boolean indexPage(String url) {
         log.info("Запуск индексации страницы: {}", url);
 
-        // Проверка на пустой или некорректный URL
-        if (url == null || url.trim().isEmpty()) {
-            log.error("URL не может быть пустым или null.");
+        if (!isUrlValid(url)) {
             return false;
         }
 
         try {
-            // Получаем информацию о сайте
-            SiteEntity site = siteCRUDService.getSiteByUrl(url);
-
-            // Если сайт найден, удаляем его
-            if (site != null) {
-                log.info("Сайт с URL {} найден, удаляем его.", url);
-                siteCRUDService.deleteSite(site.getId());
-            }
-
-            // Проверяем, пуста ли база данных после удаления
+            handleExistingSite(url);
             if (siteCRUDService.isDatabaseEmpty()) {
-                log.info("Сбрасываем автоинкремент.");
                 siteCRUDService.resetIncrement();
             }
-
-            // Получение имени сайта из конфигурации
-            String siteName = configUtil.getSiteNameFromConfig(url);
-            if (siteName == null) {
-                log.error("Сайт не найден в файле конфигурации: {}", url);
-                return false;
-            }
-
-            // Создаем новый сайт с данными из конфигурации
-            Site newSite = new Site();
-            newSite.setUrl(url);
-            newSite.setName(siteName);
-            siteCRUDService.createSite(newSite);
-
-            // После создания нового сайта получаем его из базы
-            site = siteCRUDService.getSiteByUrl(url);
-
-            if (site == null) {
-                log.error("Не удалось создать новый сайт с URL: {}", url);
-                return false;
-            }
-
-            // Удаляем существующую страницу, если она есть
+            SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
             pageCRUDService.deletePageIfExists(url);
-
-            // Процессинг страницы
-            pageProcessor.processPage(url, site.getId());
+            pageProcessor.processPage(url, siteEntity.getId());
 
             log.info("Индексация страницы {} завершена успешно.", url);
             return true;
@@ -110,6 +69,22 @@ public class IndexingServiceImpl implements IndexingService {
         } catch (Exception e) {
             log.error("Ошибка при индексации страницы {}: {}", url, e.getMessage(), e);
             return false;
+        }
+    }
+
+    private boolean isUrlValid(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            log.error("URL не может быть пустым или null.");
+            return false;
+        }
+        return true;
+    }
+
+    private void handleExistingSite(String url) {
+        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(url);
+        if (siteEntity != null) {
+            log.info("Сайт с URL {} найден, удаляем его.", url);
+            siteCRUDService.deleteSite(siteEntity.getId());
         }
     }
 

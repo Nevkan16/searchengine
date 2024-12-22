@@ -11,6 +11,7 @@ import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.utils.ConfigUtil;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -62,6 +63,28 @@ public class SiteCRUDService {
         SiteEntity siteEntity = new SiteEntity();
         populateSiteEntity(siteEntity, site);
         siteRepository.save(siteEntity);
+    }
+
+    SiteEntity createSiteIfNotExist(String url) {
+        ConfigUtil configUtil = new ConfigUtil(sitesList);
+        String siteName = configUtil.getSiteNameFromConfig(url);
+        if (siteName == null) {
+            log.error("Сайт не найден в файле конфигурации: {}", url);
+            throw new IllegalArgumentException("Сайт не найден в конфигурации");
+        }
+
+        Site newSite = new Site();
+        newSite.setUrl(url);
+        newSite.setName(siteName);
+        createSite(newSite);
+
+        SiteEntity siteEntity = getSiteByUrl(url);
+        if (siteEntity == null) {
+            log.error("Не удалось создать новый сайт с URL: {}", url);
+            throw new IllegalStateException("Не удалось создать сайт");
+        }
+
+        return siteEntity;
     }
 
     // Обновление информации о сайте
