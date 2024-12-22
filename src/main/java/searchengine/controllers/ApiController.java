@@ -14,7 +14,7 @@ import searchengine.services.*;
 public class ApiController {
 
     private final StatisticsService statisticsService;
-    private final SiteCRUDService dataService;
+    private final SiteCRUDService siteCRUDService;
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
     private final SiteCRUDService siteDataService;
@@ -54,7 +54,8 @@ public class ApiController {
     @GetMapping("/deleteSiteData")
     public ResponseEntity<ApiResponse> deleteSiteData() {
         try {
-            dataService.deleteAllSites();
+            siteCRUDService.deleteAllSites();
+            siteDataService.isDatabaseEmpty();
             return ResponseEntity.ok(new ApiResponse(true, "Данные сайта успешно удалены"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(

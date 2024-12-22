@@ -18,14 +18,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class SiteDataExecutor {
 
-    private final SiteCRUDService dataService;
+    private final SiteCRUDService siteCRUDService;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
     private final PageCRUDService pageCRUDService;
-//    private final AutoIncrementService autoIncrementService;
 
     public void refreshAllSitesData() {
+        siteCRUDService.deleteAllSites();
+        siteCRUDService.resetIncrement();
         if (isRunning.get()) {
             log.info("Обновление уже запущено. Ожидайте завершения.");
             return;
@@ -39,34 +40,15 @@ public class SiteDataExecutor {
 
         isRunning.set(true);
 
-        List<Site> configuredSites = dataService.getAllSites();
-        if (configuredSites.isEmpty()) {
-            handleEmptyConfiguredSites();
-            return;
-        }
+        List<Site> configuredSites = siteCRUDService.getAllSites();
 
         try {
-            deleteSitesNotInConfig(configuredSites);
             createOrUpdateSites(configuredSites);
             log.info("Обновление данных завершено.");
         } finally {
             shutdownExecutor();
             isRunning.set(false);
         }
-    }
-
-    private void handleEmptyConfiguredSites() {
-        log.info("Список сайтов в конфигурации пуст. Удаление всех сайтов из базы данных...");
-        dataService.deleteAllSites(); // Удалить все сайты, если список пуст
-        dataService.resetIncrement();
-        isRunning.set(false);
-    }
-
-    private void deleteSitesNotInConfig(List<Site> configuredSites) {
-        log.info("Удаление сайтов, которых нет в конфигурации...");
-        dataService.deleteSitesNotInConfig(configuredSites);
-        pageCRUDService.deleteAllPages();
-        dataService.resetIncrement();
     }
 
     private void createOrUpdateSites(List<Site> configuredSites) {
@@ -77,11 +59,11 @@ public class SiteDataExecutor {
             if (existingSite != null) {
                 // Если сайт существует, обновляем его
                 log.info("Обновление сайта: " + site.getUrl());
-                dataService.updateSite(existingSite.getId(), site); // Используем метод updateSite
+                siteCRUDService.updateSite(existingSite.getId(), site); // Используем метод updateSite
             } else {
                 // Если сайт не существует, создаём новый
                 log.info("Создание нового сайта: " + site.getUrl());
-                dataService.createSite(site); // Используем метод createSite
+                siteCRUDService.createSite(site); // Используем метод createSite
             }
         }));
     }

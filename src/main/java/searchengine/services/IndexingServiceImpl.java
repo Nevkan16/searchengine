@@ -65,25 +65,37 @@ public class IndexingServiceImpl implements IndexingService {
             // Получаем информацию о сайте
             SiteEntity site = siteCRUDService.getSiteByUrl(url);
 
-            // Если сайт не найден, создаём новый
+            // Если сайт найден, удаляем его
+            if (site != null) {
+                log.info("Сайт с URL {} найден, удаляем его.", url);
+                siteCRUDService.deleteSite(site.getId());
+            }
+
+            // Проверяем, пуста ли база данных после удаления
+            if (siteCRUDService.isDatabaseEmpty()) {
+                log.info("Сбрасываем автоинкремент.");
+                siteCRUDService.resetIncrement();
+            }
+
+            // Получение имени сайта из конфигурации
+            String siteName = configUtil.getSiteNameFromConfig(url);
+            if (siteName == null) {
+                log.error("Сайт не найден в файле конфигурации: {}", url);
+                return false;
+            }
+
+            // Создаем новый сайт с данными из конфигурации
+            Site newSite = new Site();
+            newSite.setUrl(url);
+            newSite.setName(siteName);
+            siteCRUDService.createSite(newSite);
+
+            // После создания нового сайта получаем его из базы
+            site = siteCRUDService.getSiteByUrl(url);
+
             if (site == null) {
-                log.info("Сайт с URL {} не найден в базе, обрабатываем...", url);
-
-                // Получение имени сайта из конфигурации
-                String siteName = configUtil.getSiteNameFromConfig(url);
-                if (siteName == null) {
-                    log.error("Сайт не найден в файле конфигурации.: {}", url);
-                    return false;
-                }
-
-                // Создаем новый сайт с данными из конфигурации
-                Site newSite = new Site();
-                newSite.setUrl(url);
-                newSite.setName(siteName);
-                siteCRUDService.createSite(newSite);
-
-                // После создания нового сайта получаем его из базы
-                site = siteCRUDService.getSiteByUrl(url);
+                log.error("Не удалось создать новый сайт с URL: {}", url);
+                return false;
             }
 
             // Удаляем существующую страницу, если она есть

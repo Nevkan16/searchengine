@@ -42,7 +42,7 @@ public class SiteEntity {
     private String name;
 
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PageEntity> pages; // Связь с сущностью PageEntity
+    private List<PageEntity> pages = new ArrayList<>();
 
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LemmaEntity> lemmas = new ArrayList<>();
