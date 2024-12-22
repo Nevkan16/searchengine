@@ -22,7 +22,6 @@ public class SiteDataExecutor {
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
     private final SiteRepository siteRepository;
-    private final PageCRUDService pageCRUDService;
 
     public void refreshAllSitesData() {
         siteCRUDService.deleteAllSites();

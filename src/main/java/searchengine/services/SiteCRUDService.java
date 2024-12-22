@@ -36,6 +36,8 @@ public class SiteCRUDService {
     private IndexRepository indexRepository;
     @Autowired
     private SitesList sitesList;
+    @Autowired
+    private ConfigUtil configUtil;
 
 
     public List<Site> getAllSites() {
@@ -46,15 +48,18 @@ public class SiteCRUDService {
 
         Set<String> uniqueUrls = new HashSet<>();
         List<Site> validSites = new ArrayList<>();
+
         for (Site site : allSites) {
             if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
-                if (uniqueUrls.add(site.getUrl())) {
+                String formattedUrl = configUtil.formatURL(site.getUrl());
+                if (uniqueUrls.add(formattedUrl)) {
                     validSites.add(site);
                 }
             }
         }
         return validSites;
     }
+
 
     // Создание нового сайта
     @Transactional
@@ -68,24 +73,32 @@ public class SiteCRUDService {
     SiteEntity createSiteIfNotExist(String url) {
         ConfigUtil configUtil = new ConfigUtil(sitesList);
         String siteName = configUtil.getSiteNameFromConfig(url);
+
         if (siteName == null) {
             log.error("Сайт не найден в файле конфигурации: {}", url);
-            throw new IllegalArgumentException("Сайт не найден в конфигурации");
+            return null; // Возвращаем null вместо выброса исключения
         }
 
         Site newSite = new Site();
-        newSite.setUrl(url);
+        String formattedUrl = configUtil.formatURL(url);
+        if (formattedUrl == null) {
+            log.error("URL не может быть отформатирован: {}", url);
+            return null; // Возвращаем null, если форматирование не удалось
+        }
+        newSite.setUrl(formattedUrl);
         newSite.setName(siteName);
+
         createSite(newSite);
 
         SiteEntity siteEntity = getSiteByUrl(url);
         if (siteEntity == null) {
             log.error("Не удалось создать новый сайт с URL: {}", url);
-            throw new IllegalStateException("Не удалось создать сайт");
+            return null; // Возвращаем null вместо выброса исключения
         }
 
         return siteEntity;
     }
+
 
     // Обновление информации о сайте
     @Transactional
@@ -130,7 +143,8 @@ public class SiteCRUDService {
     }
 
     private void populateSiteEntity(SiteEntity siteEntity, Site site) {
-        siteEntity.setUrl(site.getUrl());
+        String formattedUrl = configUtil.formatURL(site.getUrl());
+        siteEntity.setUrl(formattedUrl);
         siteEntity.setName(site.getName());
         siteEntity.setStatus(SiteEntity.Status.INDEXING);
         siteEntity.setStatusTime(LocalDateTime.now());
@@ -242,6 +256,5 @@ public class SiteCRUDService {
         }
         return false;
     }
-
 
 }

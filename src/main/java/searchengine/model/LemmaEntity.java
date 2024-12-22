@@ -4,7 +4,9 @@ import lombok.Data;
 
 import javax.persistence.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @Entity
@@ -27,4 +29,7 @@ public class LemmaEntity {
 
     @OneToMany(mappedBy = "lemma", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<IndexEntity> indexes = new ArrayList<>();
+
+    @ManyToMany
+    private Set<PageEntity> pages = new HashSet<>();
 }

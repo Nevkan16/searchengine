@@ -79,14 +79,14 @@ public class PageProcessor {
         return pageRepository.save(page);
     }
 
-    private void processLemmasAndIndexes(PageEntity page, SiteEntity site, String textContent) {
+    private void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {
         Map<String, Integer> lemmasCount = lemmatizer.getLemmasCount(textContent);
         for (Map.Entry<String, Integer> entry : lemmasCount.entrySet()) {
             String lemmaText = entry.getKey();
             Integer count = entry.getValue();
 
-            LemmaEntity lemma = lemmaCRUDService.updateLemmaEntity(lemmaText, site);
-            indexCRUDService.createIndex(page, lemma, count.floatValue());
+            LemmaEntity lemma = lemmaCRUDService.updateLemmaEntity(lemmaText, siteEntity, pageEntity);
+            indexCRUDService.createIndex(pageEntity, lemma, count.floatValue());
         }
     }
 }

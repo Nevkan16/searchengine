@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.LemmaEntity;
+import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.LemmaRepository;
 
@@ -16,15 +17,19 @@ public class LemmaCRUDService {
     private final LemmaRepository lemmaRepository;
 
     @Transactional
-    public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site) {
-        // Найти лемму по тексту и сайту, если не найдена, создать новую
+    public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site, PageEntity page) {
         LemmaEntity lemma = lemmaRepository.findByLemmaAndSite(lemmaText, site)
                 .orElseGet(() -> createLemmaEntity(lemmaText, site));
 
-        // Обновить частоту
-        updateLemmaFrequency(lemma);
+        // Проверяем, на какой странице встречается лемма
+        if (!lemma.getPages().contains(page)) {
+            lemma.getPages().add(page);  // Добавляем страницу
+        }
 
-        return lemmaRepository.save(lemma); // Сохранить и вернуть
+        // Обновляем частоту как количество уникальных страниц
+        lemma.setFrequency(lemma.getPages().size());  // Частота - количество страниц
+
+        return lemmaRepository.save(lemma);  // Сохраняем обновленную лемму
     }
 
     public Optional<LemmaEntity> findLemma(String lemmaText, SiteEntity site) {

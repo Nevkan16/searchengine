@@ -2,8 +2,10 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.model.SiteEntity;
+import searchengine.utils.ConfigUtil;
 
 @Slf4j
 @Service
@@ -15,6 +17,8 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageProcessor pageProcessor;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
+    @Autowired
+    private ConfigUtil configUtil;
 
     @Override
     public boolean startIndexing() {
@@ -50,7 +54,10 @@ public class IndexingServiceImpl implements IndexingService {
     public boolean indexPage(String url) {
         log.info("Запуск индексации страницы: {}", url);
 
-        if (!isUrlValid(url)) {
+        url = validateURL(url);
+
+        if (url == null) {
+            log.info("Индексация страницы остановлена: некорректный URL.");
             return false;
         }
 
@@ -60,6 +67,10 @@ public class IndexingServiceImpl implements IndexingService {
                 siteCRUDService.resetIncrement();
             }
             SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
+            if (siteEntity == null) {
+                log.info("Индексация страницы остановлена.");
+                return false;
+            }
             pageCRUDService.deletePageIfExists(url);
             pageProcessor.processPage(url, siteEntity.getId());
 
@@ -72,12 +83,14 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
-    private boolean isUrlValid(String url) {
+
+    private String validateURL(String url) {
         if (url == null || url.trim().isEmpty()) {
-            log.error("URL не может быть пустым или null.");
-            return false;
+            log.info("URL передан пустым");
+            return null;
         }
-        return true;
+
+        return configUtil.formatURL(url);
     }
 
     private void handleExistingSite(String url) {
