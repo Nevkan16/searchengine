@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.FakeConfig;
 import searchengine.model.LemmaEntity;
@@ -33,13 +32,12 @@ public class PageProcessor {
     // Общий метод для сохранения страницы и обработки лемм
     public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
         String path = new URI(url).getPath();
-        int statusCode = htmlLoader.getHttpStatusCode(url);
+        int statusCode = getHttpStatus(url);
         String content = document.html();
 
-        // Проверяем, пустая ли страница (например, если нет видимого контента)
         if (LinkProcessor.isEmptyPage(content)) {
             log.info("Skipping empty page: {}", url);
-            return; // Пропускаем сохранение пустой страницы
+            return;
         }
 
         // Сохраняем страницу в базе данных через сервис

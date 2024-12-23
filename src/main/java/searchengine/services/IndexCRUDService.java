@@ -1,6 +1,7 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.IndexEntity;
@@ -9,7 +10,7 @@ import searchengine.model.PageEntity;
 import searchengine.repository.IndexRepository;
 
 import java.util.Optional;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IndexCRUDService {
@@ -18,10 +19,15 @@ public class IndexCRUDService {
 
     @Transactional
     public void createIndex(PageEntity page, LemmaEntity lemma, float rank) {
-        IndexEntity index = new IndexEntity();
-        populateIndexEntity(index, page, lemma, rank);
-        indexRepository.save(index);
+        if (!indexRepository.existsByPageAndLemma(page, lemma)) {
+            IndexEntity index = new IndexEntity();
+            populateIndexEntity(index, page, lemma, rank);
+            indexRepository.save(index);
+        } else {
+            log.warn("Index with page {} and lemma {} already exists", page.getId(), lemma.getId());
+        }
     }
+
 
     @Transactional
     public Optional<IndexEntity> updateIndex(Integer id, PageEntity page, LemmaEntity lemma, float rank) {
