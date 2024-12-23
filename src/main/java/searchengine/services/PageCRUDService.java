@@ -66,8 +66,8 @@ public class PageCRUDService {
 
             return pageEntity;
         } catch (Exception e) {
-            log.error("Ошибка при проверке и сохранении страницы: {}", e.getMessage());
-            throw new RuntimeException("Не удалось создать или найти страницу", e);
+            log.info("Ошибка при проверке и сохранении страницы: {}. Путь: {}", e.getMessage(), path);
+            return null; // Возвращаем null вместо выброса исключения
         }
     }
 
