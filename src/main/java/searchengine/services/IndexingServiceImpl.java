@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.model.SiteEntity;
 import searchengine.task.LinkProcessor;
@@ -66,13 +67,19 @@ public class IndexingServiceImpl implements IndexingService {
             if (siteCRUDService.isDatabaseEmpty()) {
                 siteCRUDService.resetIncrement();
             }
+
             SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
             if (siteEntity == null) {
                 log.info("Индексация страницы остановлена.");
                 return false;
             }
+
+            // Удаляем существующую страницу
             pageCRUDService.deletePageIfExists(url);
-            pageProcessor.processPage(url, siteEntity.getId());
+
+            // Загружаем HTML-документ и передаём в PageProcessor
+            Document document = pageProcessor.loadHtmlDocument(url);
+            pageProcessor.processPage(url, document);
 
             log.info("Индексация страницы {} завершена успешно.", url);
             return true;
@@ -82,7 +89,6 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
     }
-
 
     private String validateURL(String url) {
         if (url == null || url.trim().isEmpty()) {

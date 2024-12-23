@@ -40,6 +40,11 @@ public class LinkProcessor {
         }
     }
 
+    public static boolean isEmptyPage(String content) {
+        // Простой способ проверки на пустую страницу: если нет содержимого внутри <body>
+        return content == null || content.trim().isEmpty() || content.equals("<html><head></head><body></body></html>");
+    }
+
     public static void clearVisitedLinks() {
         visitedLinks.clear();
     }

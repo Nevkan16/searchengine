@@ -103,7 +103,7 @@ public class LinkTask extends RecursiveTask<Void> {
             String content = document.html();
 
             // Проверяем, пустая ли страница (например, если нет видимого контента)
-            if (isEmptyPage(content)) {
+            if (LinkProcessor.isEmptyPage(content)) {
                 log.info("Skipping empty page: {}", url);
                 return; // Пропускаем сохранение пустой страницы
             }
@@ -129,10 +129,6 @@ public class LinkTask extends RecursiveTask<Void> {
         }
     }
 
-    private boolean isEmptyPage(String content) {
-        // Простой способ проверки на пустую страницу: если нет содержимого внутри <body>
-        return content == null || content.trim().isEmpty() || content.equals("<html><head></head><body></body></html>");
-    }
 
 
     private String getBaseDomain() {

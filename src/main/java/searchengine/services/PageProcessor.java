@@ -1,6 +1,7 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,7 +14,7 @@ import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
 import java.util.Map;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PageProcessor {
@@ -27,9 +28,8 @@ public class PageProcessor {
     private final PageCRUDService pageCRUDService;
 
     @Transactional
-    public void processPage(String url, Long siteId) throws IOException {
-        SiteEntity site = siteCRUDService.getSiteById(siteId);
-        Document document = loadHtmlDocument(url);
+    public void processPage(String url, Document document) throws IOException {
+        SiteEntity site = siteCRUDService.getSiteByUrl(url);
         int httpStatus = getHttpStatus(url);
         String htmlContent = document.html();
         String textContent = lemmatizer.cleanHtml(htmlContent);
@@ -40,7 +40,7 @@ public class PageProcessor {
         processLemmasAndIndexes(page, site, textContent);
     }
 
-    private Document loadHtmlDocument(String url) throws IOException {
+    Document loadHtmlDocument(String url) throws IOException {
         Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
         if (document == null) {
             throw new IOException("Failed to load HTML document for URL: " + url);
