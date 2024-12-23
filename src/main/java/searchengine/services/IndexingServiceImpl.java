@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.model.SiteEntity;
+import searchengine.task.LinkProcessor;
 import searchengine.utils.ConfigUtil;
 
 @Slf4j
@@ -27,6 +28,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             log.info("Запуск процесса индексации...");
+            LinkProcessor.clearVisitedLinks();
             siteDataExecutor.refreshAllSitesData();
             siteIndexingService.processSites();
             return true;

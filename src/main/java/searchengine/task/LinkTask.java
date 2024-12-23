@@ -1,5 +1,6 @@
 package searchengine.task;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
@@ -20,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @RequiredArgsConstructor
+@Getter
 public class LinkTask extends RecursiveTask<Void> {
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
 
@@ -33,14 +35,14 @@ public class LinkTask extends RecursiveTask<Void> {
 
     @Override
     protected Void compute() {
-        // Проверяем условие для остановки задачи
         if (depth > maxDepth || stopProcessing.get()) {
             return null;
         }
 
+        LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
+        linkProcessor.addVisitedLink(baseUrl); // Добавляем главную страницу в список посещённых
+
         try {
-            LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
-            savePageToDatabase(baseUrl, doc); // Сохраняем текущую страницу в БД
             Set<LinkTask> subTasks = processLinks(linkProcessor);
             if (!stopProcessing.get()) {
                 invokeAll(subTasks);
@@ -52,6 +54,7 @@ public class LinkTask extends RecursiveTask<Void> {
         }
         return null;
     }
+
 
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
@@ -107,11 +110,12 @@ public class LinkTask extends RecursiveTask<Void> {
 
             // Получаем SiteEntity из базы данных
 
-            siteEntity = siteCRUDService.getSiteByUrl(baseUrl);
+            siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
 
             // Сохраняем страницу в базе данных через сервис
             pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
             log.info("Page saved to database: {}", path);
+
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {

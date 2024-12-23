@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RequiredArgsConstructor
 public class LinkProcessor {
-    private final Set<String> visitedLinks = Collections.synchronizedSet(ConcurrentHashMap.newKeySet());
+    private static final Set<String> visitedLinks = Collections.synchronizedSet(ConcurrentHashMap.newKeySet());
     private final String baseDomain;
 
     public Elements extractLinks(Document doc) {
@@ -22,11 +22,26 @@ public class LinkProcessor {
     }
 
     public boolean shouldVisitLink(String linkHref) {
-        return isValidLink(linkHref) && !visitedLinks.contains(linkHref);
+        return isValidLink(linkHref) && !visitedLinks.contains(linkHref) && !isMainPage(linkHref);
     }
 
     public void addVisitedLink(String linkHref) {
         visitedLinks.add(linkHref);
+    }
+
+    private boolean isMainPage(String linkHref) {
+        try {
+            URI uri = new URI(linkHref);
+            URI baseUri = new URI(baseDomain);
+            return normalizeDomain(uri.getHost()).equals(normalizeDomain(baseUri.getHost())) &&
+                    (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"));
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+
+    public static void clearVisitedLinks() {
+        visitedLinks.clear();
     }
 
     public boolean isValidLink(String linkHref) {
