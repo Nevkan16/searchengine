@@ -8,7 +8,7 @@ import org.jsoup.nodes.Element;
 import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
 import searchengine.model.SiteEntity;
-import searchengine.services.PageCRUDService;
+import searchengine.services.PageProcessor;
 import searchengine.services.SiteCRUDService;
 import searchengine.utils.HtmlLoader;
 
@@ -31,7 +31,7 @@ public class LinkTask extends RecursiveTask<Void> {
     private final int maxDepth;      // Максимальная глубина
     private final FakeConfig fakeConfig;
     private final SiteCRUDService siteCRUDService;
-    private final PageCRUDService pageCRUDService; // Сервис для сохранения страниц
+    private final PageProcessor pageProcessor;
 
     @Override
     protected Void compute() {
@@ -54,7 +54,6 @@ public class LinkTask extends RecursiveTask<Void> {
         }
         return null;
     }
-
 
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
@@ -97,25 +96,8 @@ public class LinkTask extends RecursiveTask<Void> {
     private void savePageToDatabase(String url, Document document) {
         SiteEntity siteEntity = null;
         try {
-            HtmlLoader htmlLoader = new HtmlLoader();
-            String path = new URI(url).getPath();
-            int statusCode = htmlLoader.getHttpStatusCode(url);
-            String content = document.html();
-
-            // Проверяем, пустая ли страница (например, если нет видимого контента)
-            if (LinkProcessor.isEmptyPage(content)) {
-                log.info("Skipping empty page: {}", url);
-                return; // Пропускаем сохранение пустой страницы
-            }
-
-            // Получаем SiteEntity из базы данных
-
             siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
-
-            // Сохраняем страницу в базе данных через сервис
-            pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
-            log.info("Page saved to database: {}", path);
-
+            pageProcessor.saveAndProcessPage(url, document, siteEntity); // Используем общий метод для сохранения страницы и обработки лемм
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {
@@ -141,7 +123,7 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, siteCRUDService, pageCRUDService);
+        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
     }
 
     public static void resetStopFlag() {

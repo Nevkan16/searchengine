@@ -27,7 +27,7 @@ public class SiteIndexingService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
     private final SiteCRUDService siteCRUDService;
-    private final PageCRUDService pageCRUDService;
+    private final PageProcessor pageProcessor;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -85,7 +85,7 @@ public class SiteIndexingService {
         for (String siteUrl : sitesUrls) {
             try {
                 Document doc = Jsoup.connect(siteUrl).get();
-                LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageCRUDService);
+                LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
                 tasks.add(linkTask);
                 forkJoinPool.execute(linkTask);
             } catch (IOException e) {

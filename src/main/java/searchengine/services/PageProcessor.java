@@ -4,15 +4,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.FakeConfig;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
+import searchengine.task.LinkProcessor;
 import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Map;
 @Slf4j
 @Service
@@ -27,18 +30,33 @@ public class PageProcessor {
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
 
-    @Transactional
-    public void processPage(String url, Document document) throws IOException {
-        SiteEntity site = siteCRUDService.getSiteByUrl(url);
-        int httpStatus = getHttpStatus(url);
-        String htmlContent = document.html();
-        String textContent = lemmatizer.cleanHtml(htmlContent);
+    // Общий метод для сохранения страницы и обработки лемм
+    public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
+        String path = new URI(url).getPath();
+        int statusCode = htmlLoader.getHttpStatusCode(url);
+        String content = document.html();
 
-        pageCRUDService.deletePageIfExists(url);
+        // Проверяем, пустая ли страница (например, если нет видимого контента)
+        if (LinkProcessor.isEmptyPage(content)) {
+            log.info("Skipping empty page: {}", url);
+            return; // Пропускаем сохранение пустой страницы
+        }
 
-        PageEntity page = pageCRUDService.createPageIfNotExists(site, url, httpStatus, htmlContent);
-        processLemmasAndIndexes(page, site, textContent);
+        // Сохраняем страницу в базе данных через сервис
+        PageEntity pageEntity = pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
+        log.info("Page saved to database: {}", path);
+
+        // Обрабатываем леммы и индексы
+        processLemmasAndIndexes(pageEntity, siteEntity, content);
     }
+
+    // Обновляем метод processPage
+    @Transactional
+    public void processPage(String url, Document document) throws Exception {
+        SiteEntity site = siteCRUDService.getSiteByUrl(url);
+        saveAndProcessPage(url, document, site); // Используем общий метод для сохранения страницы и обработки лемм
+    }
+
 
     Document loadHtmlDocument(String url) throws IOException {
         Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
@@ -56,7 +74,7 @@ public class PageProcessor {
         }
     }
 
-    private void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {
+    public void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {
         Map<String, Integer> lemmasCount = lemmatizer.getLemmasCount(textContent);
         for (Map.Entry<String, Integer> entry : lemmasCount.entrySet()) {
             String lemmaText = entry.getKey();
