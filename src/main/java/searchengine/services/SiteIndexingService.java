@@ -26,7 +26,7 @@ public class SiteIndexingService {
     private final FakeConfig fakeConfig;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
-    private final SiteCRUDService dataService;
+    private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
 
     public void processSites() {
@@ -75,7 +75,7 @@ public class SiteIndexingService {
 
     private List<String> getSitesForIndexing() {
         // Получаем список URL сайтов с статусом INDEXING
-        return dataService.getSitesForIndexing();
+        return siteCRUDService.getSitesForIndexing();
     }
 
     private List<LinkTask> processEachSite(List<String> sitesUrls) {
@@ -85,7 +85,7 @@ public class SiteIndexingService {
         for (String siteUrl : sitesUrls) {
             try {
                 Document doc = Jsoup.connect(siteUrl).get();
-                LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig, pageCRUDService);
+                LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageCRUDService);
                 tasks.add(linkTask);
                 forkJoinPool.execute(linkTask);
             } catch (IOException e) {
@@ -107,9 +107,9 @@ public class SiteIndexingService {
             // Индексация завершена автоматически
             log.info("Indexing completed automatically.");
             // Обновляем статус всех сайтов
-            sitesUrls.forEach(dataService::updateSiteStatusToIndexed);
+            sitesUrls.forEach(siteCRUDService::updateSiteStatusToIndexed);
         } else {
-            dataService.handleManualStop();
+            siteCRUDService.handleManualStop();
             log.info("Indexing stopped by user.");
         }
     }

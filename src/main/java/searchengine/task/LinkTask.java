@@ -8,6 +8,7 @@ import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
 import searchengine.model.SiteEntity;
 import searchengine.services.PageCRUDService;
+import searchengine.services.SiteCRUDService;
 import searchengine.utils.HtmlLoader;
 
 import java.net.URI;
@@ -27,6 +28,7 @@ public class LinkTask extends RecursiveTask<Void> {
     private final int depth;         // Текущая глубина
     private final int maxDepth;      // Максимальная глубина
     private final FakeConfig fakeConfig;
+    private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService; // Сервис для сохранения страниц
 
     @Override
@@ -104,7 +106,8 @@ public class LinkTask extends RecursiveTask<Void> {
             }
 
             // Получаем SiteEntity из базы данных
-            siteEntity = pageCRUDService.getSiteEntityByUrl(baseUrl);
+
+            siteEntity = siteCRUDService.getSiteByUrl(baseUrl);
 
             // Сохраняем страницу в базе данных через сервис
             pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
@@ -112,12 +115,12 @@ public class LinkTask extends RecursiveTask<Void> {
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {
-                pageCRUDService.updateSiteError(siteEntity, "Error load child page:");
+                siteCRUDService.updateSiteError(siteEntity, "Error load child page:");
             }
         } catch (Exception e) {
             log.error("Failed to save page to database: " + url, e);
             if (siteEntity != null) {
-                pageCRUDService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
+                siteCRUDService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
             }
         }
     }
@@ -138,7 +141,7 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, pageCRUDService);
+        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, siteCRUDService, pageCRUDService);
     }
 
     public static void resetStopFlag() {

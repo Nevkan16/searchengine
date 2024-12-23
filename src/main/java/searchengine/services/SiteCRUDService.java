@@ -99,6 +99,18 @@ public class SiteCRUDService {
         return siteEntity;
     }
 
+    @Transactional
+    public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
+        try {
+            siteEntity.setLastError(errorMessage);
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteRepository.save(siteEntity);
+            log.info("Обновлена ошибка для сайта: {}", siteEntity.getUrl());
+        } catch (Exception e) {
+            log.error("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl(), e);
+        }
+    }
 
     // Обновление информации о сайте
     @Transactional
@@ -111,8 +123,9 @@ public class SiteCRUDService {
     }
 
     // Получение сайта по ID
-    public Optional<SiteEntity> getSiteById(Long siteId) {
-        return siteRepository.findById(siteId);
+    public SiteEntity getSiteById(Long siteId) {
+        return siteRepository.findById(siteId)
+                .orElseThrow(() -> new IllegalArgumentException("Site not found"));
     }
 
     // Удаление сайта по ID
@@ -245,7 +258,11 @@ public class SiteCRUDService {
     }
 
     public SiteEntity getSiteByUrl(String url) {
-        return siteRepository.findByUrl(url).orElse(null);
+        return siteRepository.findByUrl(url)
+                .orElseGet(() -> {
+                    log.error("Сайт не найден по URL: {}", url);
+                    return null;
+                });
     }
 
     public boolean isDatabaseEmpty() {

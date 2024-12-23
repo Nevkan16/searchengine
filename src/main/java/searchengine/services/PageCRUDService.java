@@ -49,20 +49,25 @@ public class PageCRUDService {
     }
 
     @Transactional
-    public void createPageIfNotExists(SiteEntity site, String path, int code, String content) {
+    public PageEntity createPageIfNotExists(SiteEntity site, String path, int code, String content) {
         try {
-            // Проверка существования страницы и создание, если не существует
-            if (!pageRepository.existsByPath(path)) {
-                PageEntity pageEntity = createPageEntity(site, path, code, content);
-                site.setStatusTime(LocalDateTime.now());
-                log.info("Текущее время: {}", site.getStatusTime());
-
-                pageRepository.save(pageEntity); // Сохраняем страницу
-            } else {
+            // Проверка существования страницы
+            Optional<PageEntity> existingPage = pageRepository.findByPath(path);
+            if (existingPage.isPresent()) {
                 log.info("Страница уже существует по пути: {}", path);
+                return existingPage.get();
             }
+
+            // Создание новой страницы
+            PageEntity pageEntity = createPageEntity(site, path, code, content);
+            pageRepository.save(pageEntity);
+            site.setStatusTime(LocalDateTime.now());
+            log.info("Страница создана по пути: {}. Текущее время: {}", path, site.getStatusTime());
+
+            return pageEntity;
         } catch (Exception e) {
             log.error("Ошибка при проверке и сохранении страницы: {}", e.getMessage());
+            throw new RuntimeException("Не удалось создать или найти страницу", e);
         }
     }
 
@@ -105,28 +110,8 @@ public class PageCRUDService {
         }
     }
 
-    public SiteEntity getSiteEntityByUrl(String url) {
-        return siteRepository.findByUrl(url)
-                .orElseGet(() -> {
-                    log.error("Сайт не найден по URL: {}", url);
-                    return null;
-                });
-    }
-
-    @Transactional
-    public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
-        try {
-            siteEntity.setLastError(errorMessage);
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteRepository.save(siteEntity);
-            log.info("Обновлена ошибка для сайта: {}", siteEntity.getUrl());
-        } catch (Exception e) {
-            log.error("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl(), e);
-        }
-    }
-
     public void deletePageIfExists(String url) {
         pageRepository.findByPath(url).ifPresent(pageRepository::delete);
     }
+
 }

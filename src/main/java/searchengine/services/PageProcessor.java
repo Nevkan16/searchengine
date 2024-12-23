@@ -8,45 +8,36 @@ import searchengine.config.FakeConfig;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
-import searchengine.repository.PageRepository;
-import searchengine.repository.SiteRepository;
 import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class PageProcessor {
 
-    private final PageRepository pageRepository;
-    private final SiteRepository siteRepository;
     private final Lemmatizer lemmatizer;
     private final HtmlLoader htmlLoader;
     private final FakeConfig fakeConfig;
     private final LemmaCRUDService lemmaCRUDService;
     private final IndexCRUDService indexCRUDService;
+    private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
 
     @Transactional
     public void processPage(String url, Long siteId) throws IOException {
-        SiteEntity site = getSiteById(siteId);
+        SiteEntity site = siteCRUDService.getSiteById(siteId);
         Document document = loadHtmlDocument(url);
         int httpStatus = getHttpStatus(url);
         String htmlContent = document.html();
         String textContent = lemmatizer.cleanHtml(htmlContent);
 
-        removeExistingPageIfPresent(site, url);
+        pageCRUDService.deletePageIfExists(url);
 
-        PageEntity page = createAndSavePage(site, url, httpStatus, htmlContent);
+        PageEntity page = pageCRUDService.createPageIfNotExists(site, url, httpStatus, htmlContent);
         processLemmasAndIndexes(page, site, textContent);
-    }
-
-    private SiteEntity getSiteById(Long siteId) {
-        return siteRepository.findById(siteId)
-                .orElseThrow(() -> new IllegalArgumentException("Site not found"));
     }
 
     private Document loadHtmlDocument(String url) throws IOException {
@@ -63,20 +54,6 @@ public class PageProcessor {
         } catch (Exception e) {
             throw new IOException("Failed to get HTTP status code for URL: " + url, e);
         }
-    }
-
-    private void removeExistingPageIfPresent(SiteEntity site, String url) {
-        Optional<PageEntity> existingPageOptional = pageRepository.findBySiteAndPath(site, url);
-        if (existingPageOptional.isPresent()) {
-            PageEntity existingPage = existingPageOptional.get();
-            existingPage.getIndexes().forEach(indexCRUDService::deleteIndex);
-            pageRepository.delete(existingPage);
-        }
-    }
-
-    private PageEntity createAndSavePage(SiteEntity site, String url, int httpStatus, String htmlContent) {
-        PageEntity page = pageCRUDService.createPageEntity(site, url, httpStatus, htmlContent);
-        return pageRepository.save(page);
     }
 
     private void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {

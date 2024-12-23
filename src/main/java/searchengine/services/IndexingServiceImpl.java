@@ -2,7 +2,6 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import searchengine.model.SiteEntity;
 import searchengine.utils.ConfigUtil;
@@ -17,8 +16,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageProcessor pageProcessor;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
-    @Autowired
-    private ConfigUtil configUtil;
+    private final ConfigUtil configUtil;
 
     @Override
     public boolean startIndexing() {
