@@ -7,6 +7,7 @@ import searchengine.constants.ErrorMessages;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
+import searchengine.utils.TestMethod;
 
 @RequiredArgsConstructor
 @RestController
@@ -18,6 +19,7 @@ public class ApiController {
     private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
     private final SiteCRUDService siteDataService;
+    private final TestMethod testMethod;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -66,7 +68,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            siteDataExecutor.refreshAllSitesData();
+            testMethod.testDeletePage();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));

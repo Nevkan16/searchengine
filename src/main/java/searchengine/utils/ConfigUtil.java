@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 
+import java.util.*;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -29,36 +30,54 @@ public class ConfigUtil {
     private int serverPort;
 
     public String getSiteNameFromConfig(String url) {
-        if (sitesList == null || sitesList.getSites().isEmpty()) {
-            log.info("Список сайтов пуст или не инициализирован.");
-            return null; // Возвращаем null, если список пуст
+        List<Site> availableSites = getAvailableSites();
+
+        if (availableSites.isEmpty()) {
+            log.info("Список сайтов пуст.");
+            return null;
         }
 
-        String siteName = null;
-        boolean isDuplicate = false;
+        return getSiteName(url, availableSites);
+    }
 
-        for (Site site : sitesList.getSites()) {
-            if (site.getUrl().equals(url)) {
-                if (siteName == null) {
-                    siteName = site.getName();
-                } else {
-                    isDuplicate = true;
-                    break;
-                }
+    List<Site> getAvailableSites() {
+        if (sitesList == null || sitesList.getSites().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Site> sites = sitesList.getSites();
+        Set<String> seenUrls = new HashSet<>();
+        boolean hasDuplicates = false;
+
+        for (Site site : sites) {
+            if (!seenUrls.add(site.getUrl())) {
+                hasDuplicates = true;
             }
         }
 
-        if (isDuplicate) {
-            log.info("Обнаружен дубль URL: {}", url);
+        if (hasDuplicates) {
+            log.info("В списке сайтов обнаружены дубликаты.");
         }
 
-        return siteName;
+        return sites;
     }
+
+    private String getSiteName(String url, List<Site> sites) {
+        for (Site site : sites) {
+            if (site.getUrl().equals(url)) {
+                return site.getName();
+            }
+        }
+
+        log.info("Сайт с URL '{}' не найден.", url);
+        return null;
+    }
+
 
     public String formatURL(String url) {
         if (url == null || url.isEmpty()) {
             log.info("URL передан пустым");
-            return null; // Возвращаем null, если URL некорректен
+            return null;
         }
 
         if (!isValidURL(url)) {
@@ -73,11 +92,6 @@ public class ConfigUtil {
         // Если URL не содержит протокола, добавляем "https://"
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             url = "https://" + url;
-        }
-
-        // Если URL содержит localhost без порта, добавляем порт из конфигурации
-        if (isLocalhostURL(url) && !url.contains(":")) {
-            url = url + ":" + serverPort;
         }
 
         // Убираем завершающий символ "/"
@@ -98,4 +112,45 @@ public class ConfigUtil {
     private boolean isLocalhostURL(String url) {
         return LOCALHOST_PATTERN.matcher(url).matches();
     }
+
+    private String extractBaseUrl(String url) {
+        int thirdSlashIndex = url.indexOf("/", url.indexOf("//") + 2);
+        return thirdSlashIndex == -1 ? url : url.substring(0, thirdSlashIndex);
+    }
+
+    public List<String> formattedUrlSites() {
+        List<Site> notFormatted = getAvailableSites();
+
+        List<String> formattedUrls = new ArrayList<>();
+        for (Site site : notFormatted) {
+            String formattedUrl = formatURL(site.getUrl());
+            if (formattedUrl != null) {
+                formattedUrls.add(extractBaseUrl(formattedUrl));
+            }
+        }
+
+        return formattedUrls;
+    }
+
+    public boolean isUrlInSiteList(String url) {
+        List<String> formattedUrls = formattedUrlSites();
+        return formattedUrls.contains(url);
+    }
+
+    public String validateURL(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            log.info("URL передан пустым");
+            return null;
+        }
+
+        String formattedUrl = formatURL(url);
+        String extractedUrl = extractBaseUrl(formattedUrl);
+
+        if (!isUrlInSiteList(extractedUrl)) {
+            log.info("Url не найден в списке сайтов: {}", formattedUrl);
+            return null;
+        }
+        return formattedUrl;
+    }
+
 }
