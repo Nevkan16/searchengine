@@ -50,11 +50,39 @@ public class PageProcessor {
 
     // Обновляем метод processPage
     @Transactional
-    public void processPage(String url, Document document) throws Exception {
-        SiteEntity site = siteCRUDService.getSiteByUrl(url);
-        saveAndProcessPage(url, document, site); // Используем общий метод для сохранения страницы и обработки лемм
+    public void processPage(String url) throws Exception {
+        // Проверяем и удаляем существующий сайт и его данные
+        handleExistingSite(url);
+
+        // Создаем или обновляем сайт
+        if (siteCRUDService.isDatabaseEmpty()) {
+            siteCRUDService.resetIncrement();
+        }
+
+        SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
+        if (siteEntity == null) {
+            log.info("Индексация страницы остановлена: не удалось создать сайт.");
+            return;
+        }
+
+        // Удаляем старую страницу, если она существует
+        pageCRUDService.deletePageIfExists(url);
+
+        // Загружаем HTML-документ
+        Document document = loadHtmlDocument(url);
+
+        // Сохраняем страницу и обрабатываем её содержимое
+        saveAndProcessPage(url, document, siteEntity);
+        log.info("Индексация страницы завершена успешно.");
     }
 
+    private void handleExistingSite(String url) {
+        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(url);
+        if (siteEntity != null) {
+            log.info("Сайт с URL {} найден, удаляем его.", url);
+            siteCRUDService.deleteSite(siteEntity.getId());
+        }
+    }
 
     Document loadHtmlDocument(String url) throws IOException {
         Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);

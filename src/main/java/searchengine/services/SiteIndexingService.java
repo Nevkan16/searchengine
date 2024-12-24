@@ -24,7 +24,9 @@ public class SiteIndexingService {
     private ForkJoinPool forkJoinPool = new ForkJoinPool(); // Создаём пул потоков
     private final AtomicBoolean isProcessing = new AtomicBoolean(false); // Состояние обработки
     private final FakeConfig fakeConfig;
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final ScheduledExecutorService scheduler =
+            Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
+
     private boolean manuallyStopped = false; // Флаг для отслеживания ручной остановки
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;

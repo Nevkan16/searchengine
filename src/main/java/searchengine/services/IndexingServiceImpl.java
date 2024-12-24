@@ -63,27 +63,9 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         try {
-            handleExistingSite(url);
-            if (siteCRUDService.isDatabaseEmpty()) {
-                siteCRUDService.resetIncrement();
-            }
-
-            SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
-            if (siteEntity == null) {
-                log.info("Индексация страницы остановлена.");
-                return false;
-            }
-
-            // Удаляем существующую страницу
-            pageCRUDService.deletePageIfExists(url);
-
-            // Загружаем HTML-документ и передаём в PageProcessor
-            Document document = pageProcessor.loadHtmlDocument(url);
-            pageProcessor.processPage(url, document);
-
+            pageProcessor.processPage(url);
             log.info("Индексация страницы {} завершена успешно.", url);
             return true;
-
         } catch (Exception e) {
             log.error("Ошибка при индексации страницы {}: {}", url, e.getMessage(), e);
             return false;
@@ -97,14 +79,6 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         return configUtil.formatURL(url);
-    }
-
-    private void handleExistingSite(String url) {
-        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(url);
-        if (siteEntity != null) {
-            log.info("Сайт с URL {} найден, удаляем его.", url);
-            siteCRUDService.deleteSite(siteEntity.getId());
-        }
     }
 
 }
