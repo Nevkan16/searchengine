@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.FakeConfig;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
@@ -15,7 +14,10 @@ import searchengine.utils.Lemmatizer;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Optional;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -48,50 +50,47 @@ public class PageProcessor {
         processLemmasAndIndexes(pageEntity, siteEntity, content);
     }
 
-    // Обновляем метод processPage
-    @Transactional
     public void processPage(String url) throws Exception {
-        // Проверяем и удаляем существующий сайт и его данные
-        handleExistingSite(url);
+        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl(url));
 
-        // Создаем или обновляем сайт
-        if (siteCRUDService.isDatabaseEmpty()) {
-            siteCRUDService.resetIncrement();
-        }
-
-        SiteEntity siteEntity = siteCRUDService.createSiteIfNotExist(url);
+        // Если сайт не найден, создаём его
         if (siteEntity == null) {
-            log.info("Индексация страницы остановлена: не удалось создать сайт.");
-            return;
+            log.info("Сайт не найден. Попытка создать сайт...");
+            siteEntity = siteCRUDService.createSiteIfNotExist(getBaseUrl(url));
+            if (siteEntity == null) {
+                log.error("Не удалось создать сайт для индексации: {}", url);
+                throw new Exception("Не удалось создать сайт для индексации");
+            }
         }
 
-        // Удаляем старую страницу, если она существует
-        pageCRUDService.deletePageIfExists(url);
+        // Удаление страницы, если она уже существует
+        Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
+        pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
+        siteCRUDService.resetIncrement();
 
-        // Загружаем HTML-документ
-        Document document = loadHtmlDocument(url);
-
-        // Сохраняем страницу и обрабатываем её содержимое
-        saveAndProcessPage(url, document, siteEntity);
-        log.info("Индексация страницы завершена успешно.");
-    }
-
-    private void handleExistingSite(String url) {
-        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(url);
-        if (siteEntity != null) {
-            log.info("Сайт с URL {} найден, удаляем его.", url);
-            siteCRUDService.deleteSite(siteEntity.getId());
-        }
-    }
-
-    Document loadHtmlDocument(String url) throws IOException {
+        // Загружаем HTML-документ и сохраняем/обрабатываем страницу
         Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
-        if (document == null) {
-            throw new IOException("Failed to load HTML document for URL: " + url);
-        }
-        return document;
+        saveAndProcessPage(url, document, siteEntity);
     }
 
+    private String getBaseUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            return new URI(uri.getScheme(), uri.getHost(), null, null).toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Некорректный URL: " + url, e);
+        }
+    }
+
+    private String getPath(String url) {
+        try {
+            return new URI(url).getPath();
+        } catch (Exception e) {
+            log.error("Ошибка при извлечении path из URL: {}", url, e);
+            return null;
+        }
+    }
+    
     private int getHttpStatus(String url) throws IOException {
         try {
             return htmlLoader.getHttpStatusCode(url);

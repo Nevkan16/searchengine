@@ -23,11 +23,9 @@ public class IndexCRUDService {
             IndexEntity index = new IndexEntity();
             populateIndexEntity(index, page, lemma, rank);
             indexRepository.save(index);
-        } else {
-            log.warn("Index with page {} and lemma {} already exists", page.getId(), lemma.getId());
-        }
-    }
+        }  //            log.warn("Index with page {} and lemma {} already exists", page.getId(), lemma.getId());
 
+    }
 
     @Transactional
     public Optional<IndexEntity> updateIndex(Integer id, PageEntity page, LemmaEntity lemma, float rank) {
