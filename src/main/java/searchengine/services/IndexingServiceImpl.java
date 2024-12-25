@@ -88,8 +88,9 @@ public class IndexingServiceImpl implements IndexingService {
             }
 
             // Удаление страницы, если она уже существует
-            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(url);
-            pageEntity.ifPresent(page -> pageCRUDService.deletePageByPath(url));
+            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
+            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
+            siteCRUDService.resetIncrement();
 
             // Загружаем HTML-документ и сохраняем/обрабатываем страницу
             Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
@@ -110,6 +111,16 @@ public class IndexingServiceImpl implements IndexingService {
             throw new IllegalArgumentException("Некорректный URL: " + url, e);
         }
     }
+
+    private String getPath(String url) {
+        try {
+            return new URI(url).getPath();
+        } catch (Exception e) {
+            log.error("Ошибка при извлечении path из URL: {}", url, e);
+            return null;
+        }
+    }
+
 
     private String validateURL(String url) {
         if (url == null || url.trim().isEmpty()) {

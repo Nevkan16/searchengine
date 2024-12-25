@@ -27,6 +27,16 @@ public class LemmaCRUDService {
         return lemmaRepository.save(lemma);  // Сохраняем обновленную лемму
     }
 
+    void updateOrDeleteLemma(LemmaEntity lemma) {
+        int newFrequency = lemma.getFrequency() - 1;
+        if (newFrequency > 0) {
+            lemma.setFrequency(newFrequency);
+            lemmaRepository.save(lemma);
+        } else {
+            lemmaRepository.delete(lemma);
+        }
+    }
+
     public Optional<LemmaEntity> findLemma(String lemmaText, SiteEntity site) {
         return lemmaRepository.findByLemmaAndSite(lemmaText, site);
     }
