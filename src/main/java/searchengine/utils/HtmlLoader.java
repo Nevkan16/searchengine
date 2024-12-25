@@ -22,7 +22,7 @@ public class HtmlLoader {
                     .referrer(fakeConfig.getReferrer())
                     .get();
         } catch (IOException e) {
-            log.error("Failed to load URL: {}. Reason: {}", url, e.getMessage());
+            log.info("Не удалось загрузить URL: {}. Причина: {}", url, e.getMessage());
         } catch (InterruptedException e) {
             log.error("Thread was interrupted during fetch: {}", e.getMessage());
             Thread.currentThread().interrupt(); // Сбрасываем статус прерывания

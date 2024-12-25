@@ -66,7 +66,7 @@ public class IndexingServiceImpl implements IndexingService {
     public boolean indexPage(String url) {
         log.info("Запуск индексации страницы: {}", url);
 
-//        url = validateURL(url);
+        url = configUtil.validateURL(url);
 
         if (url == null) {
             log.info("Индексация страницы остановлена: некорректный URL.");
@@ -89,7 +89,8 @@ public class IndexingServiceImpl implements IndexingService {
 
             // Удаление страницы, если она уже существует
             Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
-            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
+            String finalUrl = url;
+            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(finalUrl)));
             siteCRUDService.resetIncrement();
 
             // Загружаем HTML-документ и сохраняем/обрабатываем страницу
@@ -98,7 +99,7 @@ public class IndexingServiceImpl implements IndexingService {
             log.info("Индексация страницы {} завершена успешно.", url);
             return true;
         } catch (Exception e) {
-            log.error("Ошибка при индексации страницы {}: {}", url, e.getMessage(), e);
+            log.info("Ошибка при индексации страницы {}: {}", url, e.getMessage());
             return false;
         }
     }
@@ -122,12 +123,12 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
 
-    private String validateURL(String url) {
-        if (url == null || url.trim().isEmpty()) {
-            log.info("URL передан пустым");
-            return null;
-        }
-
-        return configUtil.formatURL(url);
-    }
+//    private String validateURL(String url) {
+//        if (url == null || url.trim().isEmpty()) {
+//            log.info("URL передан пустым");
+//            return null;
+//        }
+//
+//        return configUtil.formatURL(url);
+//    }
 }

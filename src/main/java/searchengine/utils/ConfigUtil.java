@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -29,6 +31,7 @@ public class ConfigUtil {
     @Value("${server.port}")
     private int serverPort;
 
+    // получаем имя сайта из списка сайтов (без дубликатов)
     public String getSiteNameFromConfig(String url) {
         List<Site> availableSites = getAvailableSites();
 
@@ -40,6 +43,7 @@ public class ConfigUtil {
         return getSiteName(url, availableSites);
     }
 
+    // получаем список сайтов без дубликатов
     List<Site> getAvailableSites() {
         if (sitesList == null || sitesList.getSites().isEmpty()) {
             return Collections.emptyList();
@@ -62,6 +66,7 @@ public class ConfigUtil {
         return sites;
     }
 
+    // получаем имя из объекта Site
     private String getSiteName(String url, List<Site> sites) {
         for (Site site : sites) {
             if (site.getUrl().equals(url)) {
@@ -80,24 +85,24 @@ public class ConfigUtil {
             return null;
         }
 
-        if (!isValidURL(url)) {
+        try {
+            // Добавляем схему, если её нет
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://" + url;
+            }
+
+            // Создаем объект URI, который автоматически обработает URL
+            URI uri = new URI(url);
+
+            // Составляем новый URL без завершающего "/"
+            return uri.normalize().toString().replaceAll("/$", "");
+        } catch (URISyntaxException e) {
+            log.info("Некорректный URL: {}", url);
             return null;
         }
-
-        // Если URL начинается с "www.", добавляем "https://"
-        if (url.startsWith("www.")) {
-            url = "https://" + url;
-        }
-
-        // Если URL не содержит протокола, добавляем "https://"
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "https://" + url;
-        }
-
-        // Убираем завершающий символ "/"
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
+    // Проверка url на валидность
     private boolean isValidURL(String url) {
         boolean isGeneralURL = URL_PATTERN.matcher(url).matches();
         boolean isLocalhost = isLocalhostURL(url);
@@ -113,11 +118,8 @@ public class ConfigUtil {
         return LOCALHOST_PATTERN.matcher(url).matches();
     }
 
-    private String extractBaseUrl(String url) {
-        int thirdSlashIndex = url.indexOf("/", url.indexOf("//") + 2);
-        return thirdSlashIndex == -1 ? url : url.substring(0, thirdSlashIndex);
-    }
 
+    // Получаем список форматированных url из конфиг файла без дубликатов
     public List<String> formattedUrlSites() {
         List<Site> notFormatted = getAvailableSites();
 
@@ -125,18 +127,20 @@ public class ConfigUtil {
         for (Site site : notFormatted) {
             String formattedUrl = formatURL(site.getUrl());
             if (formattedUrl != null) {
-                formattedUrls.add(extractBaseUrl(formattedUrl));
+                formattedUrls.add(getBaseUrl(formattedUrl));
             }
         }
 
         return formattedUrls;
     }
 
+    // Проверяем содержится ли в списке форматированных url переданный url
     public boolean isUrlInSiteList(String url) {
         List<String> formattedUrls = formattedUrlSites();
         return formattedUrls.contains(url);
     }
 
+    // Валидируем переданный Url (форматированный url сравнивается с форматированными именамим из списка)
     public String validateURL(String url) {
         if (url == null || url.trim().isEmpty()) {
             log.info("URL передан пустым");
@@ -144,13 +148,32 @@ public class ConfigUtil {
         }
 
         String formattedUrl = formatURL(url);
-        String extractedUrl = extractBaseUrl(formattedUrl);
+        String extractedUrl = getBaseUrl(formattedUrl);
 
         if (!isUrlInSiteList(extractedUrl)) {
             log.info("Url не найден в списке сайтов: {}", formattedUrl);
             return null;
         }
+        log.info("Url найден в списке сайтов: {}", formattedUrl);
         return formattedUrl;
+    }
+
+    private String getBaseUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            return new URI(uri.getScheme(), uri.getHost(), null, null).toString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Некорректный URL: " + url, e);
+        }
+    }
+
+    private String getPath(String url) {
+        try {
+            return new URI(url).getPath();
+        } catch (Exception e) {
+            log.error("Ошибка при извлечении path из URL: {}", url, e);
+            return null;
+        }
     }
 
 }
