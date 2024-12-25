@@ -50,27 +50,35 @@ public class PageProcessor {
         processLemmasAndIndexes(pageEntity, siteEntity, content);
     }
 
-    public void processPage(String url) throws Exception {
-        SiteEntity siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl(url));
-
-        // Если сайт не найден, создаём его
-        if (siteEntity == null) {
-            log.info("Сайт не найден. Попытка создать сайт...");
-            siteEntity = siteCRUDService.createSiteIfNotExist(getBaseUrl(url));
+    public void processPage(String url) {
+        SiteEntity siteEntity = null;
+        try {
+            siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl(url));
             if (siteEntity == null) {
-                log.error("Не удалось создать сайт для индексации: {}", url);
-                throw new Exception("Не удалось создать сайт для индексации");
+                log.info("Сайт не найден. Попытка создать сайт...");
+                siteEntity = siteCRUDService.createSiteIfNotExist(getBaseUrl(url));
+                if (siteEntity == null) {
+                    log.warn("Не удалось создать сайт для индексации: {}", url);
+                    return;
+                }
+            }
+            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
+            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
+            siteCRUDService.resetIncrement();
+            Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
+            if (document == null) {
+                log.warn("Не удалось выполнить индексацию для страницы: {}", url);
+                return;
+            }
+            saveAndProcessPage(url, document, siteEntity);
+            siteCRUDService.updateSiteStatusToIndexed(getBaseUrl(url));
+            log.info("Индексация страницы {} завершена успешно.", url);
+        } catch (Exception e) {
+            log.error("Ошибка при обработке страницы: {}", url, e);
+            if (siteEntity != null) {
+                siteCRUDService.updateSiteError(siteEntity, e.getMessage());
             }
         }
-
-        // Удаление страницы, если она уже существует
-        Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
-        pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
-        siteCRUDService.resetIncrement();
-
-        // Загружаем HTML-документ и сохраняем/обрабатываем страницу
-        Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
-        saveAndProcessPage(url, document, siteEntity);
     }
 
     private String getBaseUrl(String url) {
@@ -90,7 +98,7 @@ public class PageProcessor {
             return null;
         }
     }
-    
+
     private int getHttpStatus(String url) throws IOException {
         try {
             return htmlLoader.getHttpStatusCode(url);

@@ -60,7 +60,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             pageProcessor.processPage(url);
-            log.info("Индексация страницы {} завершена успешно.", url);
+
             return true;
         } catch (Exception e) {
             log.info("Ошибка при индексации страницы {}: {}", url, e.getMessage());

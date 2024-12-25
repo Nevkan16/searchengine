@@ -151,10 +151,10 @@ public class ConfigUtil {
         String extractedUrl = getBaseUrl(formattedUrl);
 
         if (!isUrlInSiteList(extractedUrl)) {
-            log.info("Url не найден в списке сайтов: {}", formattedUrl);
+            log.info("URL не найден в списке сайтов: {}", formattedUrl);
             return null;
         }
-        log.info("Url найден в списке сайтов: {}", formattedUrl);
+        log.info("URL найден в списке сайтов: {}", extractedUrl);
         return formattedUrl;
     }
 
