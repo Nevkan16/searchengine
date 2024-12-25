@@ -7,8 +7,7 @@ import javax.persistence.*;
 @Data
 @Entity
 @Table(
-        name = "index_table",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"page_id", "lemma_id"})
+        name = "index_table"
 )
 public class IndexEntity {
 

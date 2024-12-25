@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -42,10 +41,10 @@ public class SiteEntity {
     private String name;
 
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PageEntity> pages = new ArrayList<>();
+    private List<PageEntity> pages; // Связь с сущностью PageEntity
 
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<LemmaEntity> lemmas = new ArrayList<>();
+    private List<LemmaEntity> lemmas;
 
     public enum Status {
         INDEXING,

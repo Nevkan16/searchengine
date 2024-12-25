@@ -20,14 +20,9 @@ public class LemmaCRUDService {
     public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site, PageEntity page) {
         LemmaEntity lemma = lemmaRepository.findByLemmaAndSite(lemmaText, site)
                 .orElseGet(() -> createLemmaEntity(lemmaText, site));
-
-        // Проверяем, на какой странице встречается лемма
-        if (!lemma.getPages().contains(page)) {
-            lemma.getPages().add(page);  // Добавляем страницу
-        }
-
-        // Обновляем частоту как количество уникальных страниц
-        lemma.setFrequency(lemma.getPages().size());  // Частота - количество страниц
+        // Если лемма уже существует, обновляем частоту
+        int updatedFrequency = lemma.getFrequency() + 1;
+        lemma.setFrequency(updatedFrequency);
 
         return lemmaRepository.save(lemma);  // Сохраняем обновленную лемму
     }
