@@ -26,10 +26,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LinkTask extends RecursiveTask<Void> {
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
 
-    private final Document doc;      // HTML-документ текущей страницы
-    private final String baseUrl;    // Полный URL текущей страницы
-    private final int depth;         // Текущая глубина
-    private final int maxDepth;      // Максимальная глубина
+    private final Document doc;
+    private final String baseUrl;
+    private final int depth;
+    private final int maxDepth;
     private final FakeConfig fakeConfig;
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
@@ -80,29 +80,32 @@ public class LinkTask extends RecursiveTask<Void> {
                 linkProcessor.addVisitedLink(linkHref);
                 log.info("Processing: {}", linkHref);
 
-                try {
-                    // Загружаем дочерний документ
-                    Document childDoc = htmlLoader.fetchHtmlDocument(linkHref, fakeConfig);
-
-                    if (childDoc == null) {
-                        log.error("Failed to load child document for URL: {}", linkHref);
-                        siteCRUDService.updateSiteError(siteEntity, ErrorMessages.ERROR_LOAD_CHILD_PAGE);
-                        continue; // Пропускаем текущую ссылку
-                    }
-
-                    savePageToDatabase(linkHref, childDoc);
-
-                    subTasks.add(createSubTask(childDoc, linkHref));
-
-                } catch (Exception e) {
-                    log.error("Unexpected error while processing URL: {}", linkHref, e);
-                    siteCRUDService.updateSiteError(siteEntity, ErrorMessages.UNKNOWN_ERROR);
-                }
+                processLink(linkHref, htmlLoader, siteEntity, subTasks);
             }
         }
 
         return subTasks;
     }
+
+    private void processLink(String linkHref, HtmlLoader htmlLoader, SiteEntity siteEntity, Set<LinkTask> subTasks) {
+        try {
+            Document childDoc = htmlLoader.fetchHtmlDocument(linkHref, fakeConfig);
+
+            if (childDoc == null) {
+                log.error("Failed to load child document for URL: {}", linkHref);
+                siteCRUDService.updateSiteError(siteEntity, ErrorMessages.ERROR_LOAD_CHILD_PAGE);
+                return; // Пропускаем текущую ссылку
+            }
+
+            savePageToDatabase(linkHref, childDoc);
+            subTasks.add(createSubTask(childDoc, linkHref));
+
+        } catch (Exception e) {
+            log.error("Unexpected error while processing URL: {}", linkHref, e);
+            siteCRUDService.updateSiteError(siteEntity, ErrorMessages.UNKNOWN_ERROR);
+        }
+    }
+
 
     private void savePageToDatabase(String url, Document document) {
         SiteEntity siteEntity = null;
