@@ -156,8 +156,8 @@ public class SiteCRUDService {
 
         if (pages.isEmpty()) {
             siteEntity.setStatus(SiteEntity.Status.FAILED);
-//            siteEntity.setStatusTime(LocalDateTime.now());
-//            siteEntity.setLastError(ErrorMessages.PAGES_NOT_FOUND);
+            siteEntity.setStatusTime(LocalDateTime.now());
+            siteEntity.setLastError(ErrorMessages.SITE_UNAVAILABLE);
             siteRepository.save(siteEntity);
             log.warn("Статус сайта обновлён на FAILED: " + siteUrl);
             return;
