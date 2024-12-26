@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
+import searchengine.constants.ErrorMessages;
+import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
@@ -149,11 +151,24 @@ public class SiteCRUDService {
     public void updateSiteStatusToIndexed(String siteUrl) {
         SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
+
+        List<PageEntity> pages = pageRepository.findBySiteId(siteEntity.getId());
+
+        if (pages.isEmpty()) {
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+//            siteEntity.setStatusTime(LocalDateTime.now());
+//            siteEntity.setLastError(ErrorMessages.PAGES_NOT_FOUND);
+            siteRepository.save(siteEntity);
+            log.warn("Статус сайта обновлён на FAILED: " + siteUrl);
+            return;
+        }
+
         siteEntity.setStatus(SiteEntity.Status.INDEXED);
         siteEntity.setStatusTime(LocalDateTime.now());
         siteRepository.save(siteEntity);
         log.info("Статус сайта обновлён на INDEXED: " + siteUrl);
     }
+
 
     private void populateSiteEntity(SiteEntity siteEntity, Site site) {
         String formattedUrl = configUtil.formatURL(site.getUrl());
@@ -265,13 +280,11 @@ public class SiteCRUDService {
                 });
     }
 
-    public boolean isDatabaseEmpty() {
+    public void isDatabaseEmpty() {
         long count = siteRepository.count();
         if (count == 0) {
             log.info("База данных пуста.");
-            return true;
         }
-        return false;
     }
 
 }

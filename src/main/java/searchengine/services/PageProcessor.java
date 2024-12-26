@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
+import searchengine.constants.ErrorMessages;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
@@ -76,12 +77,12 @@ public class PageProcessor {
         } catch (Exception e) {
             log.error("Ошибка при обработке страницы: {}", url, e);
             if (siteEntity != null) {
-                siteCRUDService.updateSiteError(siteEntity, e.getMessage());
+                siteCRUDService.updateSiteError(siteEntity, ErrorMessages.UNKNOWN_ERROR);
             }
         }
     }
 
-    private String getBaseUrl(String url) {
+    public String getBaseUrl(String url) {
         try {
             URI uri = new URI(url);
             return new URI(uri.getScheme(), uri.getHost(), null, null).toString();

@@ -7,6 +7,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
+import searchengine.constants.ErrorMessages;
 import searchengine.model.SiteEntity;
 import searchengine.services.PageProcessor;
 import searchengine.services.SiteCRUDService;
@@ -61,6 +62,14 @@ public class LinkTask extends RecursiveTask<Void> {
 
         Set<LinkTask> subTasks = new HashSet<>();
         HtmlLoader htmlLoader = new HtmlLoader();
+        SiteEntity siteEntity;
+
+        try {
+            siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
+        } catch (Exception e) {
+            log.error("Failed to retrieve SiteEntity for URL: {}", getBaseUrl(), e);
+            return subTasks;
+        }
 
         for (Element link : linkProcessor.extractLinks(doc)) {
             if (stopProcessing.get()) break;
@@ -77,6 +86,7 @@ public class LinkTask extends RecursiveTask<Void> {
 
                     if (childDoc == null) {
                         log.error("Failed to load child document for URL: {}", linkHref);
+                        siteCRUDService.updateSiteError(siteEntity, ErrorMessages.ERROR_LOAD_CHILD_PAGE);
                         continue; // Пропускаем текущую ссылку
                     }
 
@@ -86,6 +96,7 @@ public class LinkTask extends RecursiveTask<Void> {
 
                 } catch (Exception e) {
                     log.error("Unexpected error while processing URL: {}", linkHref, e);
+                    siteCRUDService.updateSiteError(siteEntity, ErrorMessages.UNKNOWN_ERROR);
                 }
             }
         }
@@ -97,16 +108,16 @@ public class LinkTask extends RecursiveTask<Void> {
         SiteEntity siteEntity = null;
         try {
             siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
-            pageProcessor.saveAndProcessPage(url, document, siteEntity); // Используем общий метод для сохранения страницы и обработки лемм
+            pageProcessor.saveAndProcessPage(url, document, siteEntity);
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {
-                siteCRUDService.updateSiteError(siteEntity, "Error load child page:");
+                siteCRUDService.updateSiteError(siteEntity, ErrorMessages.SITE_UNAVAILABLE);
             }
         } catch (Exception e) {
             log.error("Failed to save page to database: " + url, e);
             if (siteEntity != null) {
-                siteCRUDService.updateSiteError(siteEntity, "Error saving page: " + e.getMessage());
+                siteCRUDService.updateSiteError(siteEntity, ErrorMessages.ERROR_SAVE_PAGE_TO_DATABASE);
             }
         }
     }

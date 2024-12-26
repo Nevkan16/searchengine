@@ -14,6 +14,7 @@ import searchengine.repository.SiteRepository;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -143,6 +144,22 @@ public class PageCRUDService {
         }
     }
 
+    public List<PageEntity> getPageBySiteId(SiteEntity siteEntity) {
+        if (siteEntity == null) {
+            log.warn("SiteEntity равен null.");
+            return Collections.emptyList();
+        }
+        if (siteEntity.getId() == null) {
+            log.warn("ID SiteEntity равен null.");
+            return Collections.emptyList();
+        }
+
+        List<PageEntity> pages = pageRepository.findBySiteId(siteEntity.getId());
+        if (pages.isEmpty()) {
+            log.info("Для сайта с ID {} страницы не найдены.", siteEntity.getId());
+        }
+        return pages;
+    }
 
 
     @Transactional
