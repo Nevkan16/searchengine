@@ -9,6 +9,7 @@ public class ErrorMessages {
             "Данная страница находится за пределами сайтов, указанных в конфигурационном файле";
 
     public static final String SITE_UNAVAILABLE = "Сайт не доступен";
+    public static final String PAGE_UNAVAILABLE = "Страница не доступна";
 
     public static final String INTERRUPTED_OPERATION = "Операция прервана при загрузке";
 

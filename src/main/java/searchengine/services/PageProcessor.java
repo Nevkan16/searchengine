@@ -69,6 +69,7 @@ public class PageProcessor {
             Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
             if (document == null) {
                 log.warn("Не удалось выполнить индексацию для страницы: {}", url);
+                siteCRUDService.updateSiteError(siteEntity, ErrorMessages.PAGE_UNAVAILABLE);
                 return;
             }
             saveAndProcessPage(url, document, siteEntity);
