@@ -141,17 +141,4 @@ public class Lemmatizer {
         return uniqueLemmas;
     }
 
-    public static void main(String[] args) throws IOException {
-//        String text = "Повторное появление леопарда в Осетии позволяет предположить, что леопард постоянно обитает в некоторых районах Северного Кавказа.";
-        Lemmatizer lemmatizer = new Lemmatizer();
-//
-//        HashMap<String, Integer> lemmas = lemmatizer.getLemmasWithCounts(text);
-//        lemmatizer.printLemmasWithCounts(lemmas);
-//        lemmas.forEach((lemma, count) -> System.out.println(lemma + " - " + count));
-//
-        String htmlCode = "";
-
-        String cleanText = lemmatizer.cleanHtml(htmlCode);
-        System.out.println(cleanText);
-    }
 }

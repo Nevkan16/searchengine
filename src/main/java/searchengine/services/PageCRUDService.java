@@ -10,7 +10,6 @@ import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.PageRepository;
-import searchengine.repository.SiteRepository;
 
 import java.net.URI;
 import java.time.LocalDateTime;
@@ -24,11 +23,9 @@ import java.util.Optional;
 public class PageCRUDService {
 
     private final PageRepository pageRepository;
-    private final SiteRepository siteRepository;
     private final IndexRepository indexRepository;
     private final LemmaCRUDService lemmaCRUDService;
 
-    // Метод для создания объекта PageEntity
     public PageEntity createPageEntity(SiteEntity site, String path, int code, String content) {
         PageEntity pageEntity = new PageEntity();
         pageEntity.setSite(site);
@@ -37,8 +34,6 @@ public class PageCRUDService {
         pageEntity.setContent(content);
         return pageEntity;
     }
-
-    // Остальной код остается без изменений, используем createPageEntity где нужно
 
     @Transactional
     public void create(SiteEntity site, String path, int code, String content) {
@@ -65,7 +60,6 @@ public class PageCRUDService {
                 return existingPage.get();
             }
 
-            // Создание новой страницы
             PageEntity pageEntity = createPageEntity(site, path, code, content);
             pageRepository.save(pageEntity);
             site.setStatusTime(LocalDateTime.now());
@@ -74,7 +68,7 @@ public class PageCRUDService {
             return pageEntity;
         } catch (Exception e) {
             log.info("Ошибка при проверке и сохранении страницы: {}. Путь: {}", e.getMessage(), path);
-            return null; // Возвращаем null вместо выброса исключения
+            return null;
         }
     }
 

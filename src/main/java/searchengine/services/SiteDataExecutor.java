@@ -20,11 +20,11 @@ public class SiteDataExecutor {
 
     private final SiteCRUDService siteCRUDService;
     private ExecutorService executorService;
-    private final AtomicBoolean isRunning = new AtomicBoolean(false); // Флаг выполнения
+    private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final SiteRepository siteRepository;
 
     public void refreshAllSitesData() {
-        siteCRUDService.deleteAllSites();
+        siteCRUDService.deleteSiteData();
         siteCRUDService.resetIncrement();
         if (isRunning.get()) {
             log.info("Обновление уже запущено. Ожидайте завершения.");
@@ -56,13 +56,11 @@ public class SiteDataExecutor {
             SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
                     .orElse(null);
             if (existingSite != null) {
-                // Если сайт существует, обновляем его
                 log.info("Обновление сайта: " + site.getUrl());
-                siteCRUDService.updateSite(existingSite.getId(), site); // Используем метод updateSite
+                siteCRUDService.updateSite(existingSite.getId(), site);
             } else {
-                // Если сайт не существует, создаём новый
                 log.info("Создание нового сайта: " + site.getUrl());
-                siteCRUDService.createSite(site); // Используем метод createSite
+                siteCRUDService.createSite(site);
             }
         }));
     }

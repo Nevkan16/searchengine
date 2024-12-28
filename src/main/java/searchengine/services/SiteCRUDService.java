@@ -1,7 +1,7 @@
 package searchengine.services;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
@@ -20,26 +20,19 @@ import javax.persistence.PersistenceContext;
 import java.time.LocalDateTime;
 import java.util.*;
 @Slf4j
+@RequiredArgsConstructor
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
 public class SiteCRUDService {
 
     @PersistenceContext // внедрение Entity Manager в компоненты приложения
     private EntityManager entityManager;
 
-    @Autowired // автоматическое внедрение зависимостей
-    private SiteRepository siteRepository;
-
-    @Autowired
-    private PageRepository pageRepository;
-
-    @Autowired
-    private LemmaRepository lemmaRepository;
-    @Autowired
-    private IndexRepository indexRepository;
-    @Autowired
-    private SitesList sitesList;
-    @Autowired
-    private ConfigUtil configUtil;
+    private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
+    private final SitesList sitesList;
+    private final ConfigUtil configUtil;
 
 
     public List<Site> getAllSites() {
@@ -78,14 +71,14 @@ public class SiteCRUDService {
 
         if (siteName == null) {
             log.error("Сайт не найден в файле конфигурации: {}", url);
-            return null; // Возвращаем null вместо выброса исключения
+            return null;
         }
 
         Site newSite = new Site();
         String formattedUrl = configUtil.formatURL(url);
         if (formattedUrl == null) {
             log.error("URL не может быть отформатирован: {}", url);
-            return null; // Возвращаем null, если форматирование не удалось
+            return null;
         }
         newSite.setUrl(formattedUrl);
         newSite.setName(siteName);
@@ -95,7 +88,7 @@ public class SiteCRUDService {
         SiteEntity siteEntity = getSiteByUrl(url);
         if (siteEntity == null) {
             log.error("Не удалось создать новый сайт с URL: {}", url);
-            return null; // Возвращаем null вместо выброса исключения
+            return null;
         }
 
         return siteEntity;
@@ -241,10 +234,6 @@ public class SiteCRUDService {
 
             siteRepository.delete(siteEntity);
             log.info("Сайт удален из БД: " + siteConfig.getUrl());
-
-            // Сброс автоинкремента
-            resetAutoIncrement("page");
-            resetAutoIncrement("site");
 
         }
     }

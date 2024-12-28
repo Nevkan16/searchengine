@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 1;
+    private static final double PERCENT_THRESHOLD = 0.5;
 
     private final Lemmatizer lemmatizer;
     private final SiteRepository siteRepository;
@@ -35,80 +35,107 @@ public class SearchServiceImpl implements SearchService {
     public SearchResponse search(String query, String site, int offset, int limit) {
         log.info("Starting search with query: '{}', site: '{}', offset: {}, limit: {}", query, site, offset, limit);
 
-        Set<String> uniqueLemmas = lemmatizer.extractLemmasFromQuery(query);
-        log.info("Extracted Lemmas: {}", uniqueLemmas);
+        Set<String> uniqueLemmas = extractLemmas(query);
+        if (uniqueLemmas.isEmpty()) {
+            return createEmptyResponse("No valid lemmas found.");
+        }
+
+        SiteEntity siteEntity = validateSite(site);
+        if (site != null && siteEntity == null) {
+            return createEmptyResponse("Site not found");
+        }
+
+        long totalPages = countPages(siteEntity);
+        filterLemmas(uniqueLemmas, totalPages);
 
         if (uniqueLemmas.isEmpty()) {
-            log.warn("No lemmas extracted from query. Returning empty result.");
-            return new SearchResponse(true, 0, Collections.emptyList(), "No valid lemmas found.");
+            return createEmptyResponse(null);
         }
 
-        SiteEntity siteEntity = null;
-        if (site != null) {
-            Optional<SiteEntity> siteEntityOpt = siteRepository.findByUrl(site);
-            if (siteEntityOpt.isEmpty()) {
-                log.warn("Site not found: {}", site);
-                return new SearchResponse(false, 0, Collections.emptyList(), "Site not found");
-            }
-            siteEntity = siteEntityOpt.get();
-        }
+        return processSearchResults(uniqueLemmas, siteEntity, offset, limit);
+    }
 
+    private Set<String> extractLemmas(String query) {
+        Set<String> uniqueLemmas = lemmatizer.extractLemmasFromQuery(query);
+        log.info("Extracted Lemmas: {}", uniqueLemmas);
+        return uniqueLemmas;
+    }
+
+    private SiteEntity validateSite(String site) {
+        if (site == null) {
+            return null;
+        }
+        return siteRepository.findByUrl(site).orElse(null);
+    }
+
+    private long countPages(SiteEntity siteEntity) {
         long totalPages = (siteEntity == null) ? pageRepository.count() : pageRepository.countBySite(siteEntity);
         log.info("Total pages for search: {}", totalPages);
+        return totalPages;
+    }
 
+    private void filterLemmas(Set<String> uniqueLemmas, long totalPages) {
         Set<String> excludedLemmas = getExcludedLemmas(uniqueLemmas, totalPages);
         uniqueLemmas.removeAll(excludedLemmas);
         log.info("Remaining Lemmas after exclusion: {}", uniqueLemmas);
+    }
 
-        if (uniqueLemmas.isEmpty()) {
-            log.info("No remaining lemmas after exclusion, returning empty search result.");
-            return new SearchResponse(true, 0, Collections.emptyList(), null);
-        }
+    private SearchResponse createEmptyResponse(String message) {
+        log.info("Returning empty search result: {}", message);
+        return new SearchResponse(true, 0, Collections.emptyList(), message);
+    }
 
+    private SearchResponse processSearchResults(Set<String> uniqueLemmas, SiteEntity siteEntity,
+                                                int offset,
+                                                int limit) {
         Set<PageEntity> matchingPages = findPagesForLemma(uniqueLemmas, siteEntity);
         log.info("Found matching pages: {}", matchingPages.size());
 
         if (matchingPages.isEmpty()) {
-            log.warn("No matching pages found.");
-            return new SearchResponse(true, 0, Collections.emptyList(), null);
+            return createEmptyResponse(null);
         }
 
         Map<PageEntity, Float> pageRelevanceMap = calculateAbsoluteRelevance(matchingPages);
         if (pageRelevanceMap.isEmpty()) {
-            log.warn("No relevance data calculated. Returning empty result.");
-            return new SearchResponse(true, 0, Collections.emptyList(), "No relevance data found.");
+            return createEmptyResponse("No relevance data found.");
         }
 
+        return generateSearchResponse(matchingPages, pageRelevanceMap, uniqueLemmas, offset, limit);
+    }
+
+    private SearchResponse generateSearchResponse(Set<PageEntity> matchingPages, Map<PageEntity,
+            Float> pageRelevanceMap, Set<String> uniqueLemmas, int offset, int limit) {
         float maxRelevance = Collections.max(pageRelevanceMap.values());
         log.info("Max relevance score: {}", maxRelevance);
 
         List<SearchResult> results = matchingPages.stream()
                 .skip(offset)
                 .limit(limit)
-                .map(page -> {
-                    float absoluteRelevance = pageRelevanceMap.get(page);
-                    float relativeRelevance = absoluteRelevance / maxRelevance;
-
-                    String title = extractTitleFromContent(page.getContent());
-                    String snippet = createSnippet(page.getContent(), uniqueLemmas, lemmatizer);
-
-                    log.info("Page '{}' - Title: '{}', Snippet: '{}', Relative Relevance: {}", page.getPath(), title, snippet, relativeRelevance);
-
-                    return SearchResult.builder()
-                            .site(page.getSite().getUrl())
-                            .siteName(page.getSite().getName())
-                            .uri(page.getPath())
-                            .title(title)
-                            .snippet(snippet)
-                            .relevance(relativeRelevance)
-                            .build();
-                })
+                .map(page -> mapToSearchResult(page, uniqueLemmas, pageRelevanceMap.get(page), maxRelevance))
                 .toList();
 
         log.info("Search completed. Total results: {}", results.size());
         return new SearchResponse(true, results.size(), results, null);
     }
 
+    private SearchResult mapToSearchResult(PageEntity page, Set<String> uniqueLemmas, float absoluteRelevance,
+                                           float maxRelevance) {
+        float relativeRelevance = absoluteRelevance / maxRelevance;
+        String title = extractTitleFromContent(page.getContent());
+        String snippet = createSnippet(page.getContent(), uniqueLemmas, lemmatizer);
+
+        log.info("Page '{}' - Title: '{}', Snippet: '{}', Relative Relevance: {}",
+                page.getPath(), title, snippet, relativeRelevance);
+
+        return SearchResult.builder()
+                .site(page.getSite().getUrl())
+                .siteName(page.getSite().getName())
+                .uri(page.getPath())
+                .title(title)
+                .snippet(snippet)
+                .relevance(relativeRelevance)
+                .build();
+    }
 
     private String extractTitleFromContent(String content) {
         int titleStart = content.indexOf("<title>");
@@ -163,7 +190,8 @@ public class SearchServiceImpl implements SearchService {
 
     private Set<PageEntity> findPagesForLemma(Set<String> lemmas, SiteEntity siteEntity) {
         Set<PageEntity> pages = new HashSet<>();
-        log.info("Finding pages for lemmas: {} and siteEntity: {}", lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
+        log.info("Finding pages for lemmas: {} and siteEntity: {}",
+                lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
 
         List<LemmaEntity> lemmaEntities = lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
         log.info("Found {} lemma entities in repository.", lemmaEntities.size());
@@ -181,7 +209,8 @@ public class SearchServiceImpl implements SearchService {
             if (pages.isEmpty()) {
                 pages.addAll(lemmaPages);
             } else {
-                log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(), lemmaPages.stream().map(PageEntity::getPath).toList());
+                log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(), lemmaPages.stream()
+                        .map(PageEntity::getPath).toList());
                 pages.retainAll(lemmaPages);
                 log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).toList());
 
@@ -235,7 +264,8 @@ public class SearchServiceImpl implements SearchService {
             // Порог для исключения лемм (можно настроить)
             if (percentage > PERCENT_THRESHOLD) {
                 excludedLemmas.add(lemmaEntity.getLemma());
-                log.info("Excluding lemma '{}' with frequency {} on {}% of total pages.", lemmaEntity.getLemma(), lemmaPageCount, percentage * 100);
+                log.info("Excluding lemma '{}' with frequency {} on {}% of total pages.",
+                        lemmaEntity.getLemma(), lemmaPageCount, percentage * 100);
             }
         }
 
@@ -271,7 +301,7 @@ public class SearchServiceImpl implements SearchService {
                 String word = words[i];
                 Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery
                         (word.replaceAll
-                        ("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase());
+                                ("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase());
 
                 if (!Collections.disjoint(lemmas, wordLemmas)) {
                     snippet.append("<b>").append(word).append("</b> ");

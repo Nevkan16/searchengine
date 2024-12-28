@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.LemmaEntity;
-import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.LemmaRepository;
 
@@ -17,14 +16,13 @@ public class LemmaCRUDService {
     private final LemmaRepository lemmaRepository;
 
     @Transactional
-    public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site, PageEntity page) {
+    public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site) {
         LemmaEntity lemma = lemmaRepository.findByLemmaAndSite(lemmaText, site)
                 .orElseGet(() -> createLemmaEntity(lemmaText, site));
-        // Если лемма уже существует, обновляем частоту
         int updatedFrequency = lemma.getFrequency() + 1;
         lemma.setFrequency(updatedFrequency);
 
-        return lemmaRepository.save(lemma);  // Сохраняем обновленную лемму
+        return lemmaRepository.save(lemma);
     }
 
     void updateOrDeleteLemma(LemmaEntity lemma) {
@@ -46,24 +44,15 @@ public class LemmaCRUDService {
         lemmaRepository.delete(lemma);
     }
 
-
-    // Метод для создания новой леммы
     private LemmaEntity createLemmaEntity(String lemmaText, SiteEntity site) {
         LemmaEntity newLemma = new LemmaEntity();
         populateLemmaEntity(newLemma, lemmaText, site);
         return newLemma;
     }
 
-    // Метод для обновления частоты леммы
-    private void updateLemmaFrequency(LemmaEntity lemma) {
-        lemma.setFrequency(lemma.getFrequency() + 1);
-    }
-
-    // Метод для заполнения леммы
     private void populateLemmaEntity(LemmaEntity lemma, String lemmaText, SiteEntity site) {
         lemma.setLemma(lemmaText);
         lemma.setFrequency(0);
         lemma.setSite(site);
     }
-
 }

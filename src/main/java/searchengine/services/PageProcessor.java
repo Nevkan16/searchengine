@@ -32,7 +32,6 @@ public class PageProcessor {
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
 
-    // Общий метод для сохранения страницы и обработки лемм
     public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
         String path = new URI(url).getPath();
         int statusCode = getHttpStatus(url);
@@ -43,11 +42,9 @@ public class PageProcessor {
             return;
         }
 
-        // Сохраняем страницу в базе данных через сервис
         PageEntity pageEntity = pageCRUDService.createPageIfNotExists(siteEntity, path, statusCode, content);
         log.info("Page saved to database: {}", path);
 
-        // Обрабатываем леммы и индексы
         processLemmasAndIndexes(pageEntity, siteEntity, content);
     }
 
@@ -115,7 +112,7 @@ public class PageProcessor {
             String lemmaText = entry.getKey();
             Integer count = entry.getValue();
 
-            LemmaEntity lemma = lemmaCRUDService.updateLemmaEntity(lemmaText, siteEntity, pageEntity);
+            LemmaEntity lemma = lemmaCRUDService.updateLemmaEntity(lemmaText, siteEntity);
             indexCRUDService.createIndex(pageEntity, lemma, count.floatValue());
         }
     }
