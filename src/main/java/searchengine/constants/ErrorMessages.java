@@ -23,6 +23,7 @@ public class ErrorMessages {
 
     public static final String ERROR_SAVE_PAGE_TO_DATABASE = "Ошибка сохранения страницы";
     public static final String PAGES_NOT_FOUND = "Страницы отсутствуют";
+    public static final String EMPTY_QUERY = "Задан пустой поисковый запрос";
 
 
     private ErrorMessages() {

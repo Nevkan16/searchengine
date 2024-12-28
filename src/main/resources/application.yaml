@@ -24,10 +24,10 @@ indexing-settings:
       name: Лента.ру
     - url: https://www.playback.ru
       name: PlayBack.Ru
-    - url: https://skillbox.ru
-      name: skillbox
-#    - url: https://www.svetlovka.ru
-#      name: Svetlovka
+#    - url: https://skillbox.ru
+#      name: skillbox
+    - url: https://www.svetlovka.ru
+      name: Svetlovka
 #    - url: https://nikoartgallery.com
 #      name: nikoar
 #    - url: http://localhost:8080/pages/page1.html
@@ -38,8 +38,8 @@ indexing-settings:
 #      name: Fake Page 3
 #    - url: http://localhost:8080/pages/page4.html
 #      name: Fake Page 4
-    - url: https://dombulgakova.ru
-      name: dombulgakova
+#    - url: https://dombulgakova.ru
+#      name: dombulgakova
 
 fake:
   user-agent: "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6"

@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.constants.ErrorMessages;
 import searchengine.dto.ApiResponse;
+import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
 import searchengine.utils.TestMethod;
@@ -16,10 +17,10 @@ public class ApiController {
 
     private final StatisticsService statisticsService;
     private final SiteCRUDService siteCRUDService;
-    private final SiteDataExecutor siteDataExecutor;
     private final IndexingServiceImpl indexingService;
     private final SiteCRUDService siteDataService;
     private final TestMethod testMethod;
+    private final SearchService searchService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -83,5 +84,21 @@ public class ApiController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
         }
+    }
+
+    @GetMapping("/search")
+    public SearchResponse search(
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "site", required = false) String site,
+            @RequestParam(value = "offset", defaultValue = "0") int offset,
+            @RequestParam(value = "limit", defaultValue = "10") int limit) {
+
+        // Проверяем, что запрос не пустой
+        if (query == null || query.isBlank()) {
+            return new SearchResponse(false, null, null, "Задан пустой поисковый запрос");
+        }
+
+        // Вызываем сервис поиска
+        return searchService.search(query, site, offset, limit);
     }
 }

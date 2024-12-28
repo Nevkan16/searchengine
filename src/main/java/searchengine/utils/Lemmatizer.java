@@ -127,6 +127,20 @@ public class Lemmatizer {
         return Jsoup.parse(html).text();
     }
 
+    public Set<String> extractLemmasFromQuery(String query) {
+        String processQuery = preprocessText(query);
+        String[] words = processQuery.split("\\s+");
+        Set<String> uniqueLemmas = new HashSet<>();
+
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                List<String> lemmas = getLemmasForWord(word);
+                uniqueLemmas.addAll(lemmas);
+            }
+        }
+        return uniqueLemmas;
+    }
+
     public static void main(String[] args) throws IOException {
 //        String text = "Повторное появление леопарда в Осетии позволяет предположить, что леопард постоянно обитает в некоторых районах Северного Кавказа.";
         Lemmatizer lemmatizer = new Lemmatizer();

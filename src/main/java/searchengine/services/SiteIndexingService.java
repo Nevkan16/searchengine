@@ -87,7 +87,8 @@ public class SiteIndexingService {
         for (String siteUrl : sitesUrls) {
             try {
                 Document doc = Jsoup.connect(siteUrl).get();
-                LinkTask linkTask = new LinkTask(doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
+                LinkTask linkTask = new LinkTask(
+                        doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
                 tasks.add(linkTask);
                 forkJoinPool.execute(linkTask);
             } catch (IOException e) {
@@ -117,7 +118,7 @@ public class SiteIndexingService {
     }
 
     private void scheduleStopProcessing() {
-        int stopDelaySeconds = 25; // Время задержки в секундах
+        int stopDelaySeconds = 120; // Время задержки в секундах
         scheduler.schedule(() -> {
             if (isProcessing.get() && !manuallyStopped) {
                 log.info("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
