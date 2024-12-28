@@ -1,6 +1,7 @@
 package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.constants.ErrorMessages;
@@ -9,7 +10,7 @@ import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
 import searchengine.utils.TestMethod;
-
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api")
@@ -93,9 +94,16 @@ public class ApiController {
             @RequestParam(value = "offset", defaultValue = "0") int offset,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
 
+        log.info("Search request received: query='{}', site='{}', offset={}, limit={}", query, site, offset, limit);
+
         // Проверяем, что запрос не пустой
         if (query == null || query.isBlank()) {
             return new SearchResponse(false, null, null, "Задан пустой поисковый запрос");
+        }
+
+        // Если выбрано "All sites", передаем null как параметр для site
+        if (site != null && site.isBlank()) {
+            site = null;
         }
 
         // Вызываем сервис поиска

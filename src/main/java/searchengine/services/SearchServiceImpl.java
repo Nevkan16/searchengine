@@ -16,6 +16,8 @@ import searchengine.repository.SiteRepository;
 import searchengine.utils.Lemmatizer;
 
 import java.util.*;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -63,7 +65,7 @@ public class SearchServiceImpl implements SearchService {
             return new SearchResponse(true, 0, Collections.emptyList(), null);
         }
 
-        Set<PageEntity> matchingPages = findPagesForLemma(uniqueLemmas);
+        Set<PageEntity> matchingPages = findPagesForLemma(uniqueLemmas, siteEntity);
         log.info("Found matching pages: {}", matchingPages.size());
 
         if (matchingPages.isEmpty()) {
@@ -159,15 +161,22 @@ public class SearchServiceImpl implements SearchService {
         return 0f;
     }
 
-    private Set<PageEntity> findPagesForLemma(Set<String> lemmas) {
+    private Set<PageEntity> findPagesForLemma(Set<String> lemmas, SiteEntity siteEntity) {
         Set<PageEntity> pages = new HashSet<>();
-        log.info("Finding pages for lemmas: {}", lemmas);
+        log.info("Finding pages for lemmas: {} and siteEntity: {}", lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
 
         List<LemmaEntity> lemmaEntities = lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
         log.info("Found {} lemma entities in repository.", lemmaEntities.size());
 
         for (LemmaEntity lemmaEntity : lemmaEntities) {
             Set<PageEntity> lemmaPages = getPagesForLemma(lemmaEntity);
+
+            if (siteEntity != null) {
+                lemmaPages = lemmaPages.stream()
+                        .filter(pageEntity -> pageEntity.getSite()
+                                .equals(siteEntity))
+                        .collect(Collectors.toSet());
+            }
 
             if (pages.isEmpty()) {
                 pages.addAll(lemmaPages);
@@ -185,7 +194,6 @@ public class SearchServiceImpl implements SearchService {
             } else {
                 pages.retainAll(lemmaPages);
             }
-
         }
 
         log.info("Found {} matching pages for lemmas.", pages.size());
