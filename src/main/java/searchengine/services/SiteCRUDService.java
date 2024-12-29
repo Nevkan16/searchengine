@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
@@ -208,14 +209,13 @@ public class SiteCRUDService {
 
         System.out.println("Все сайты удалены из базы данных.");
     }
-
-
-    private void resetAutoIncrement(String tableName) {
+    @Transactional
+    public void resetAutoIncrement(String tableName) {
         try {
             entityManager.createNativeQuery("ALTER TABLE " + tableName + " AUTO_INCREMENT = 1").executeUpdate();
             log.info("Автоинкремент сброшен для таблицы: " + tableName);
         } catch (Exception e) {
-            log.info("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
+            log.error("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
         }
     }
 
@@ -275,5 +275,43 @@ public class SiteCRUDService {
             log.info("База данных пуста.");
         }
     }
+
+//    @Async("threadPoolTaskExecutor")
+    @Transactional
+    public void deleteSiteAsync(String siteUrl) {
+        try {
+            log.info("Асинхронное удаление сайта: {}", siteUrl);
+            SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
+                    .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
+
+            // Удаление связанных данных
+            pageRepository.deleteBySite(siteEntity);
+            log.info("Связанные страницы удалены для сайта: {}", siteUrl);
+
+            siteRepository.delete(siteEntity);
+            log.info("Сайт удалён: {}", siteUrl);
+        } catch (Exception e) {
+            log.error("Ошибка при асинхронном удалении сайта: {}", siteUrl, e);
+        }
+    }
+
+    @Transactional
+    public void deleteSiteWithTransaction(String siteUrl) {
+        try {
+            log.info("Удаление сайта с транзакцией: {}", siteUrl);
+            SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
+                    .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
+
+            // Удаление связанных данных
+            pageRepository.deleteBySite(siteEntity);
+            log.info("Связанные страницы удалены для сайта: {}", siteUrl);
+
+            siteRepository.delete(siteEntity);
+            log.info("Сайт удалён: {}", siteUrl);
+        } catch (Exception e) {
+            log.error("Ошибка при удалении сайта: {}", siteUrl, e);
+        }
+    }
+
 
 }

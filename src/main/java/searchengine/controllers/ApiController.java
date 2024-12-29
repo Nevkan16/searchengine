@@ -9,6 +9,7 @@ import searchengine.dto.ApiResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
+import searchengine.utils.EntityTableService;
 import searchengine.utils.TestMethod;
 @Slf4j
 @RequiredArgsConstructor
@@ -22,6 +23,8 @@ public class ApiController {
     private final SiteCRUDService siteDataService;
     private final TestMethod testMethod;
     private final SearchService searchService;
+    private final SiteDataExecutor siteDataExecutor;
+    private final EntityTableService entityTableService;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -31,7 +34,7 @@ public class ApiController {
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
         if (!indexingService.startIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, ErrorMessages.INDEXING_NOT_RUNNING));
+            return ResponseEntity.badRequest().body(new ApiResponse(false, ErrorMessages.INDEXING_ALREADY_RUNNING));
         }
 
         return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
@@ -41,7 +44,7 @@ public class ApiController {
     public ResponseEntity<ApiResponse> stopIndexing() {
         if (!indexingService.stopIndexing()) {
             return ResponseEntity.badRequest().body(new ApiResponse(
-                    false, ErrorMessages.INDEXING_ALREADY_RUNNING));
+                    false, ErrorMessages.INDEXING_NOT_RUNNING));
         }
         return ResponseEntity.ok(new ApiResponse(true, null));
     }
@@ -70,7 +73,7 @@ public class ApiController {
     @GetMapping("/testService")
     public ResponseEntity<ApiResponse> someRequest() {
         try {
-            testMethod.testDeletePage();
+            siteDataExecutor.refreshAllSitesData();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
