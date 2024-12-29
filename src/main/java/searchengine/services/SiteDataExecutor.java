@@ -96,18 +96,22 @@ public class SiteDataExecutor {
         }
     }
 
+    private final Object lock = new Object(); // Глобальный объект блокировки
+
     private void createOrUpdateSites(List<Site> configuredSites) {
         log.info("Создание или обновление сайтов...");
         initializeExecutorService();
 
         configuredSites.forEach(site -> executorService.submit(() -> {
-            SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
-                    .orElse(null);
-            if (existingSite != null) {
-                log.info("Обновление сайта: {}", site.getUrl());
-                siteCRUDService.updateSite(existingSite.getId(), site);
-            } else {
-                siteCRUDService.createSite(site);
+            synchronized (lock) {
+                SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
+                        .orElse(null);
+                if (existingSite != null) {
+                    log.info("Обновление сайта: {}", site.getUrl());
+                    siteCRUDService.updateSite(existingSite.getId(), site);
+                } else {
+                    siteCRUDService.createSite(site);
+                }
             }
         }));
     }
@@ -116,7 +120,7 @@ public class SiteDataExecutor {
         log.info("Ожидание завершения всех потоков...");
         executorService.shutdown();
         try {
-            if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
+            if (!executorService.awaitTermination(3, TimeUnit.SECONDS)) {
                 log.warn("Не все потоки завершились вовремя. Принудительное завершение...");
                 executorService.shutdownNow();
             }
