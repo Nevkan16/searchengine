@@ -1,19 +1,21 @@
 package searchengine.utils;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.Table;
 import javax.persistence.metamodel.EntityType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-@Service
+@Component
 @RequiredArgsConstructor
 @Slf4j
-public class EntityTableService {
+public class EntityTableUtil {
 
     private final EntityManager entityManager;
 
@@ -29,6 +31,10 @@ public class EntityTableService {
             }
             tableNames.add(tableName);
         }
+        if (tableNames.isEmpty()) {
+            log.warn("Таблицы не найдены");
+            return Collections.emptyList();
+        }
         return tableNames;
     }
 
@@ -41,8 +47,15 @@ public class EntityTableService {
             log.error("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
         }
     }
+    @Transactional
+    public void resetAutoIncrementForAllTables() {
+        List<String> tableNames = getEntityTableNames();
 
-    private void resetAutoIncrementForAllTables(List<String> tableNames) {
+        if (tableNames.isEmpty()) {
+            log.warn("Нет таблиц для сброса автоинкремента");
+            return;
+        }
+
         log.info("Сброс автоинкремента для всех таблиц...");
         tableNames.forEach(this::resetAutoIncrement);
         log.info("Сброс автоинкремента завершён.");

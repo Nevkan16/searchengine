@@ -6,9 +6,8 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
-import searchengine.utils.EntityTableService;
+import searchengine.utils.EntityTableUtil;
 
-import javax.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -23,9 +22,7 @@ public class SiteDataExecutor {
 
     private final SiteCRUDService siteCRUDService;
     private final SiteRepository siteRepository;
-    private final EntityTableService entityTableService;
-    private final EntityManager entityManager;
-
+    private final EntityTableUtil entityTableService;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
 
@@ -37,28 +34,15 @@ public class SiteDataExecutor {
 
         log.info("Начало обновления данных для всех сайтов...");
 
-        // Пересоздать пул, если он завершён
-        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
-            restartExecutor();
-        }
+        initializeExecutorService();
 
         isRunning.set(true);
 
         try {
             List<Site> configuredSites = siteCRUDService.getAllSites();
-
-            // Удаление старых сайтов
             deleteSitesInParallel(configuredSites);
-
-            // Получение названий таблиц
-            List<String> tableNames = entityTableService.getEntityTableNames();
-
-            // Сброс автоинкремента для всех таблиц
-            resetAutoIncrementForAllTables(tableNames);
-
-            // Создание или обновление сайтов
+            entityTableService.resetAutoIncrementForAllTables();
             createOrUpdateSites(configuredSites);
-
             log.info("Обновление данных завершено.");
         } finally {
             shutdownExecutor();
@@ -66,21 +50,28 @@ public class SiteDataExecutor {
         }
     }
 
+    private void initializeExecutorService() {
+        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
+            executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            log.info("Пул потоков пересоздан.");
+        }
+    }
+
     private void deleteSitesInParallel(List<Site> configuredSites) {
         log.info("Начало удаления старых сайтов...");
-        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
-            restartExecutor();
-        }
+        initializeExecutorService();
 
         List<SiteEntity> sitesToDelete = new ArrayList<>();
-        configuredSites.forEach(site -> executorService.submit(() -> {
-            siteRepository.findByUrl(site.getUrl()).ifPresent(siteEntity -> {
-                log.info("Сайт найден в базе данных: {}", site.getUrl());
-                synchronized (sitesToDelete) {
-                    sitesToDelete.add(siteEntity);
-                }
+        configuredSites.forEach(site -> {
+            executorService.submit(() -> {
+                siteRepository.findByUrl(site.getUrl()).ifPresent(siteEntity -> {
+                    log.info("Сайт найден в базе данных: {}", site.getUrl());
+                    synchronized (sitesToDelete) {
+                        sitesToDelete.add(siteEntity);
+                    }
+                });
             });
-        }));
+        });
 
         shutdownExecutor();
         log.info("Количество сайтов, найденных для удаления: {}", sitesToDelete.size());
@@ -105,17 +96,9 @@ public class SiteDataExecutor {
         }
     }
 
-    private void resetAutoIncrementForAllTables(List<String> tableNames) {
-        log.info("Сброс автоинкремента для всех таблиц...");
-        tableNames.forEach(siteCRUDService::resetAutoIncrement);
-        log.info("Сброс автоинкремента завершён.");
-    }
-
     private void createOrUpdateSites(List<Site> configuredSites) {
         log.info("Создание или обновление сайтов...");
-        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
-            restartExecutor();
-        }
+        initializeExecutorService();
 
         configuredSites.forEach(site -> executorService.submit(() -> {
             SiteEntity existingSite = siteRepository.findByUrl(site.getUrl())
@@ -143,10 +126,5 @@ public class SiteDataExecutor {
             Thread.currentThread().interrupt();
         }
         log.info("Все потоки завершены.");
-    }
-
-    private void restartExecutor() {
-        executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        log.info("Пул потоков пересоздан.");
     }
 }

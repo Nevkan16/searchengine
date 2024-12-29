@@ -10,6 +10,7 @@ import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.task.LinkProcessor;
+import searchengine.utils.EntityTableUtil;
 import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
@@ -31,6 +32,7 @@ public class PageProcessor {
     private final IndexCRUDService indexCRUDService;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
+    private final EntityTableUtil entityTableService;
 
     public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
         String path = new URI(url).getPath();
@@ -62,7 +64,7 @@ public class PageProcessor {
             }
             Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
             pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
-            siteCRUDService.resetIncrement();
+            entityTableService.resetAutoIncrementForAllTables();
             Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
             if (document == null) {
                 log.warn("Не удалось выполнить индексацию для страницы: {}", url);

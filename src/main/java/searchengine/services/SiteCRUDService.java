@@ -133,13 +133,6 @@ public class SiteCRUDService {
        log.info("Сайт удалён: " + siteEntity.getUrl());
     }
 
-    @Transactional
-    public void resetIncrement() {
-        resetAutoIncrement("page");
-        resetAutoIncrement("site");
-        resetAutoIncrement("index_table");
-        resetAutoIncrement("lemma");
-    }
 
     // В классе SiteIndexingService
     public void updateSiteStatusToIndexed(String siteUrl) {
@@ -217,6 +210,12 @@ public class SiteCRUDService {
         } catch (Exception e) {
             log.error("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
         }
+    }
+
+    void resetAutoIncrementForAllTables(List<String> tableNames) {
+        log.info("Сброс автоинкремента для всех таблиц...");
+        tableNames.forEach(this::resetAutoIncrement);
+        log.info("Сброс автоинкремента завершён.");
     }
 
     @Transactional

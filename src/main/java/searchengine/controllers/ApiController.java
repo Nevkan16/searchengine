@@ -9,8 +9,9 @@ import searchengine.dto.ApiResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
-import searchengine.utils.EntityTableService;
+import searchengine.utils.EntityTableUtil;
 import searchengine.utils.TestMethod;
+
 @Slf4j
 @RequiredArgsConstructor
 @RestController
@@ -24,7 +25,8 @@ public class ApiController {
     private final TestMethod testMethod;
     private final SearchService searchService;
     private final SiteDataExecutor siteDataExecutor;
-    private final EntityTableService entityTableService;
+    private final EntityTableUtil entityTableService;
+    private final ApiResponse goodResponse = new ApiResponse(true, null);
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -34,27 +36,28 @@ public class ApiController {
     @GetMapping("/startIndexing")
     public ResponseEntity<ApiResponse> startIndexing() {
         if (!indexingService.startIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(false, ErrorMessages.INDEXING_ALREADY_RUNNING));
+            ApiResponse response = new ApiResponse(false, ErrorMessages.INDEXING_ALREADY_RUNNING);
+            return ResponseEntity.badRequest().body(response);
         }
 
-        return ResponseEntity.ok(new ApiResponse(true, null));  // Ответ возвращается сразу
+        return ResponseEntity.ok(goodResponse);  // Ответ возвращается сразу
     }
 
     @GetMapping("/stopIndexing")
     public ResponseEntity<ApiResponse> stopIndexing() {
         if (!indexingService.stopIndexing()) {
-            return ResponseEntity.badRequest().body(new ApiResponse(
-                    false, ErrorMessages.INDEXING_NOT_RUNNING));
+            ApiResponse response = new ApiResponse(false, ErrorMessages.INDEXING_NOT_RUNNING);
+            return ResponseEntity.badRequest().body(response);
         }
-        return ResponseEntity.ok(new ApiResponse(true, null));
+        return ResponseEntity.ok(goodResponse);
     }
     @PostMapping("/indexPage")
     public ResponseEntity<ApiResponse> indexPage(@RequestParam String url) {
-        if (indexingService.indexPage(url)) {
-            return ResponseEntity.badRequest().body(new ApiResponse(
-                    false, ErrorMessages.PAGE_OUTSIDE_CONFIGURED_SITES));
+        if (!indexingService.indexPage(url)) {
+            ApiResponse response = new ApiResponse(false, ErrorMessages.PAGE_OUTSIDE_CONFIGURED_SITES);
+            return ResponseEntity.badRequest().body(response);
         }
-        return ResponseEntity.ok(new ApiResponse(true, null));
+        return ResponseEntity.ok(goodResponse);
     }
 
     // Удаление данных по URL сайта
@@ -83,7 +86,7 @@ public class ApiController {
     @GetMapping("/resetInc")
     public ResponseEntity<ApiResponse> resetIncrement() {
         try {
-            siteDataService.resetIncrement();
+            entityTableService.resetAutoIncrementForAllTables();
             return ResponseEntity.ok(new ApiResponse(true, "Метод успешно выполнен"));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
@@ -91,7 +94,7 @@ public class ApiController {
     }
 
     @GetMapping("/search")
-    public SearchResponse search(
+    public ResponseEntity<SearchResponse> search(
             @RequestParam(value = "query", required = false) String query,
             @RequestParam(value = "site", required = false) String site,
             @RequestParam(value = "offset", defaultValue = "0") int offset,
@@ -101,15 +104,16 @@ public class ApiController {
 
         // Проверяем, что запрос не пустой
         if (query == null || query.isBlank()) {
-            return new SearchResponse(false, null, null, "Задан пустой поисковый запрос");
+            SearchResponse response = new SearchResponse(false, null, null, ErrorMessages.EMPTY_QUERY);
+            return ResponseEntity.badRequest().body(response);
         }
 
-        // Если выбрано "All sites", передаем null как параметр для site
         if (site != null && site.isBlank()) {
             site = null;
         }
 
-        // Вызываем сервис поиска
-        return searchService.search(query, site, offset, limit);
+        SearchResponse searchResponse = searchService.search(query, site, offset, limit);
+
+        return ResponseEntity.ok(searchResponse);
     }
 }
