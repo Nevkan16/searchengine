@@ -23,9 +23,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 0.5;
+    private static final double PERCENT_THRESHOLD = 0.6;
     private static final int SNIPPET_WINDOW = 30;
-
+    private Set<String> lemmas;
+    private Map<Integer, String> matches;
+    private String[] words;
     private final Lemmatizer lemmatizer;
     private final SiteRepository siteRepository;
     private final LemmaRepository lemmaRepository;
@@ -179,9 +181,9 @@ public class SearchServiceImpl implements SearchService {
     }
 
     // Находит совпадения лемм в тексте.
-    private Map<Integer, String> findMatches(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
-        Map<Integer, String> matches = new TreeMap<>();
-        String[] words = content.split("\\s+");
+    private Map<Integer, String> findMatches(String content) {
+        matches = new TreeMap<>();
+        words = content.split("\\s+");
 
         for (int i = 0; i < words.length; i++) {
             String word = cleanWord(words[i]);
@@ -199,24 +201,23 @@ public class SearchServiceImpl implements SearchService {
     }
 
     // Вычисляет конечный индекс для сниппета.
-    private int calculateEndIndex(int index, int wordsLength) {
-        return Math.min(wordsLength, index + SNIPPET_WINDOW / 2);
+    private int calculateEndIndex(int index) {
+        return Math.min(words.length, index + SNIPPET_WINDOW / 2);
     }
 
     // Проверяет, является ли слово релевантным для лемм.
-    private boolean isWordRelevant(String word, Set<String> lemmas, Lemmatizer lemmatizer) {
+    private boolean isWordRelevant(String word) {
         String cleanedWord = cleanWord(word);
         Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(cleanedWord);
-        return !Collections.disjoint(lemmas, wordLemmas); //у двух множеств есть пересечение
+        return !Collections.disjoint(lemmas, wordLemmas);
     }
 
     // Добавляет слова в сниппет.
-    private int appendWordsToSnippet(StringBuilder builder, String[] words, int start, int end,
-                                     Set<String> lemmas, Lemmatizer lemmatizer, int snippetLength) {
+    private int appendWordsToSnippet(StringBuilder builder, int start, int end, int snippetLength) {
         for (int i = start; i < end && snippetLength < SNIPPET_WINDOW; i++) {
             String word = words[i];
-            if (isWordRelevant(word, lemmas, lemmatizer)) {
-                builder.append("<b>").append(word).append("</b>");
+            if (isWordRelevant(word)) {
+                builder.append("<b>").append(word).append("</b> ");
             } else {
                 builder.append(word).append(" ");
             }
@@ -225,43 +226,28 @@ public class SearchServiceImpl implements SearchService {
         return snippetLength;
     }
 
-    // Строит сниппет на основе найденных совпадений.
-    private String buildSnippet(String[] words, Map<Integer, String> matches,
-                                Set<String> lemmas, Lemmatizer lemmatizer) {
+    // Строит сниппет на основе найденных совпадений с учетом дополнительного условия.
+    private String generateSnippet(boolean checkLemmas) {
         StringBuilder builder = new StringBuilder();
         int snippetLength = 0;
 
         for (Map.Entry<Integer, String> match : matches.entrySet()) {
             int index = match.getKey();
             int start = calculateStartIndex(index);
-            int end = calculateEndIndex(index, words.length);
+            int end = calculateEndIndex(index);
 
-            snippetLength = appendWordsToSnippet(builder, words, start, end, lemmas, lemmatizer, snippetLength);
-            if (snippetLength >= SNIPPET_WINDOW) {
-                break;
+            snippetLength = appendWordsToSnippet(builder, start, end, snippetLength);
+
+            if (checkLemmas) {
+                Set<String> lemmasInSnippet = lemmatizer.extractLemmasFromQuery(builder.toString());
+                lemmasInSnippet.retainAll(lemmas);
+
+                if (lemmasInSnippet.size() >= 2) {
+                    break;
+                }
             }
 
-        }
-        return builder.toString();
-    }
-
-    // Находит лучший сниппет, если предыдущий не подходит.
-    private String findBetterSnippet(String content, Map<Integer, String> matches,
-                                     Set<String> lemmas, Lemmatizer lemmatizer) {
-        String[] words = content.split("\\s+");
-        StringBuilder builder = new StringBuilder();
-        int snippetLength = 0;
-
-        for (Map.Entry<Integer, String> match : matches.entrySet()) {
-            int index = match.getKey();
-            int start = calculateStartIndex(index);
-            int end = calculateEndIndex(index, words.length);
-
-            snippetLength = appendWordsToSnippet(builder, words, start, end, lemmas, lemmatizer, snippetLength);
-            Set<String> lemmasInSnippet = lemmatizer.extractLemmasFromQuery(builder.toString());
-            lemmasInSnippet.retainAll(lemmas);
-
-            if (lemmasInSnippet.size() >= 2) {
+            if (!checkLemmas && snippetLength >= SNIPPET_WINDOW) {
                 break;
             }
         }
@@ -269,18 +255,20 @@ public class SearchServiceImpl implements SearchService {
     }
 
     // Создает сниппет на основе контента и лемм.
-    private String createSnippet(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
-        Map<Integer, String> matches = findMatches(content, lemmas, lemmatizer);
+    private String createSnippet(String content, Set<String> lemmas) {
+        this.lemmas = lemmas;
+        matches = findMatches(content);
 
         if (matches.isEmpty()) {
             return "";
         }
-        String snippet = buildSnippet(content.split("\\s+"), matches, lemmas, lemmatizer);
+
+        String snippet = generateSnippet(false);
         Set<String> lemmasInSnippet = lemmatizer.extractLemmasFromQuery(snippet);
         lemmasInSnippet.retainAll(lemmas);
 
         if (lemmas.size() > 2 && lemmasInSnippet.size() < 2) {
-            snippet = findBetterSnippet(content, matches, lemmas, lemmatizer);
+            snippet = generateSnippet(true);
         }
         return snippet.trim();
     }
@@ -300,7 +288,7 @@ public class SearchServiceImpl implements SearchService {
                                            float maxRelevance) {
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
-        String snippet = createSnippet(page.getContent(), uniqueLemmas, lemmatizer);
+        String snippet = createSnippet(page.getContent(), uniqueLemmas);
 
         log.info("Page '{}' - Title: '{}', Snippet: '{}', Relative Relevance: {}",
                 page.getPath(), title, snippet, relativeRelevance);
