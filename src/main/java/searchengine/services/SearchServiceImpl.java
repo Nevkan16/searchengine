@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class SearchServiceImpl implements SearchService {
 
     private static final double PERCENT_THRESHOLD = 0.5;
+    private static final int SNIPPET_WINDOW = 30;
 
     private final Lemmatizer lemmatizer;
     private final SiteRepository siteRepository;
@@ -189,44 +190,62 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private Set<PageEntity> findPagesForLemma(Set<String> lemmas, SiteEntity siteEntity) {
-        Set<PageEntity> pages = new HashSet<>();
         log.info("Finding pages for lemmas: {} and siteEntity: {}",
                 lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
 
-        List<LemmaEntity> lemmaEntities = lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
+        List<LemmaEntity> lemmaEntities = fetchLemmaEntities(lemmas);
         log.info("Found {} lemma entities in repository.", lemmaEntities.size());
+
+        return findMatchingPages(lemmaEntities, siteEntity);
+    }
+
+    private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
+        // Получение списка лемм из репозитория, упорядоченных по частоте
+        return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
+    }
+
+    private Set<PageEntity> findMatchingPages(List<LemmaEntity> lemmaEntities, SiteEntity siteEntity) {
+        Set<PageEntity> pages = new HashSet<>();
 
         for (LemmaEntity lemmaEntity : lemmaEntities) {
             Set<PageEntity> lemmaPages = getPagesForLemma(lemmaEntity);
+            lemmaPages = filterPagesBySite(lemmaPages, siteEntity);
 
-            if (siteEntity != null) {
-                lemmaPages = lemmaPages.stream()
-                        .filter(pageEntity -> pageEntity.getSite()
-                                .equals(siteEntity))
-                        .collect(Collectors.toSet());
-            }
-
-            if (pages.isEmpty()) {
-                pages.addAll(lemmaPages);
-            } else {
-                log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(), lemmaPages.stream()
-                        .map(PageEntity::getPath).toList());
-                pages.retainAll(lemmaPages);
-                log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).toList());
-
-            }
-
-            if (pages.isEmpty()) {
-                pages.addAll(lemmaPages);
-            } else if (lemmaPages.isEmpty()) {
-                pages.clear();
-            } else {
-                pages.retainAll(lemmaPages);
+            updatePagesBasedOnLemma(pages, lemmaPages, lemmaEntity);
+            if (pages.isEmpty() && lemmaPages.isEmpty()) {
+                break;
             }
         }
 
         log.info("Found {} matching pages for lemmas.", pages.size());
         return pages;
+    }
+
+    private Set<PageEntity> filterPagesBySite(Set<PageEntity> lemmaPages, SiteEntity siteEntity) {
+        if (siteEntity == null) {
+            return lemmaPages;
+        }
+
+        return lemmaPages.stream()
+                .filter(pageEntity -> pageEntity.getSite().equals(siteEntity))
+                .collect(Collectors.toSet());
+    }
+
+    private void updatePagesBasedOnLemma
+            (Set<PageEntity> pages, Set<PageEntity> lemmaPages, LemmaEntity lemmaEntity) {
+        if (pages.isEmpty()) {
+            pages.addAll(lemmaPages);
+        } else {
+            log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(),
+                    lemmaPages.stream().map(PageEntity::getPath).toList());
+            pages.retainAll(lemmaPages); // Пересечение страниц
+            log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).toList());
+        }
+
+        if (lemmaPages.isEmpty()) {
+            pages.clear(); // Если lemmaPages пуст, очищаем все результаты
+        }
+
     }
 
     private Set<PageEntity> getPagesForLemma(LemmaEntity lemmaEntity) {
@@ -258,10 +277,8 @@ public class SearchServiceImpl implements SearchService {
                     .distinct()
                     .count();
 
-            // Если лемма встречается на большем проценте страниц, чем допустимый порог, она будет исключена
             double percentage = (double) lemmaPageCount / totalPages;
 
-            // Порог для исключения лемм (можно настроить)
             if (percentage > PERCENT_THRESHOLD) {
                 excludedLemmas.add(lemmaEntity.getLemma());
                 log.info("Excluding lemma '{}' with frequency {} on {}% of total pages.",
@@ -273,49 +290,119 @@ public class SearchServiceImpl implements SearchService {
         return excludedLemmas;
     }
 
-
     private String createSnippet(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
-        final int SNIPPET_WINDOW = 30;
+        // Найти совпадения лемм в тексте
+        Map<Integer, String> matches = findMatches(content, lemmas, lemmatizer);
+
+        if (matches.isEmpty()) {
+            return "";
+        }
+
+        // Построить сниппет на основе найденных совпадений
+        String snippet = buildSnippet(content.split("\\s+"), matches, lemmas, lemmatizer);
+
+        // Проверяем, содержит ли сниппет как минимум 2 уникальные леммы из запроса
+        Set<String> lemmasInSnippet = lemmatizer.extractLemmasFromQuery(snippet);
+        lemmasInSnippet.retainAll(lemmas); // Оставляем только пересечения
+
+        if (lemmas.size() > 2 && lemmasInSnippet.size() < 2) {
+            // Если недостаточно лемм, ищем другой фрагмент
+            snippet = findBetterSnippet(content, matches, lemmas, lemmatizer);
+        }
+
+        return snippet.trim();
+    }
+
+    private String findBetterSnippet(String content, Map<Integer, String> matches,
+                                     Set<String> lemmas, Lemmatizer lemmatizer) {
+        String[] words = content.split("\\s+");
+        StringBuilder snippet = new StringBuilder();
+        int snippetLength = 0;
+
+        // Проходим по всем совпадениям и собираем более релевантный сниппет
+        for (Map.Entry<Integer, String> match : matches.entrySet()) {
+            int index = match.getKey();
+            int start = calculateStartIndex(index);
+            int end = calculateEndIndex(index, words.length);
+
+            snippetLength = appendWordsToSnippet(snippet, words, start, end, lemmas, lemmatizer, snippetLength);
+
+            // Проверяем количество лемм в текущем сниппете
+            Set<String> lemmasInSnippet = lemmatizer.extractLemmasFromQuery(snippet.toString());
+            lemmasInSnippet.retainAll(lemmas);
+
+            if (lemmasInSnippet.size() >= 2) {
+                break;
+            }
+        }
+
+        return snippet.toString();
+    }
+
+    private Map<Integer, String> findMatches(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
         Map<Integer, String> matches = new TreeMap<>();
         String[] words = content.split("\\s+");
 
         for (int i = 0; i < words.length; i++) {
-            String word = words[i].replaceAll("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase();
+            String word = cleanWord(words[i]);
             Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(word);
             if (!Collections.disjoint(lemmas, wordLemmas)) {
                 matches.put(i, words[i]);
             }
         }
 
-        if (matches.isEmpty()) {
-            return "";
-        }
+        return matches;
+    }
 
+    private String buildSnippet(String[] words, Map<Integer, String> matches,
+                                Set<String> lemmas, Lemmatizer lemmatizer) {
         StringBuilder snippet = new StringBuilder();
         int snippetLength = 0;
+
         for (Map.Entry<Integer, String> match : matches.entrySet()) {
             int index = match.getKey();
-            int start = Math.max(0, index - SNIPPET_WINDOW / 2);
-            int end = Math.min(words.length, index + SNIPPET_WINDOW / 2);
-            for (int i = start; i < end && snippetLength < SNIPPET_WINDOW; i++) {
-                String word = words[i];
-                Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery
-                        (word.replaceAll
-                                ("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase());
+            int start = calculateStartIndex(index);
+            int end = calculateEndIndex(index, words.length);
 
-                if (!Collections.disjoint(lemmas, wordLemmas)) {
-                    snippet.append("<b>").append(word).append("</b> ");
-                } else {
-                    snippet.append(word).append(" ");
-                }
-                snippetLength++;
-            }
+            snippetLength = appendWordsToSnippet(snippet, words, start, end, lemmas, lemmatizer, snippetLength);
             if (snippetLength >= SNIPPET_WINDOW) {
                 break;
             }
         }
 
         return snippet.toString().trim();
+    }
+
+    private int calculateStartIndex(int index) {
+        return Math.max(0, index - SNIPPET_WINDOW / 2);
+    }
+
+    private int calculateEndIndex(int index, int wordsLength) {
+        return Math.min(wordsLength, index + SNIPPET_WINDOW / 2);
+    }
+
+    private int appendWordsToSnippet(StringBuilder snippet, String[] words, int start, int end,
+                                     Set<String> lemmas, Lemmatizer lemmatizer, int snippetLength) {
+        for (int i = start; i < end && snippetLength < SNIPPET_WINDOW; i++) {
+            String word = words[i];
+            if (isWordRelevant(word, lemmas, lemmatizer)) {
+                snippet.append("<b>").append(word).append("</b> ");
+            } else {
+                snippet.append(word).append(" ");
+            }
+            snippetLength++;
+        }
+        return snippetLength;
+    }
+
+    private boolean isWordRelevant(String word, Set<String> lemmas, Lemmatizer lemmatizer) {
+        String cleanedWord = cleanWord(word);
+        Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(cleanedWord);
+        return !Collections.disjoint(lemmas, wordLemmas);
+    }
+
+    private String cleanWord(String word) {
+        return word.replaceAll("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase();
     }
 }
 

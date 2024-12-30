@@ -51,6 +51,7 @@ public class ApiController {
         }
         return ResponseEntity.ok(goodResponse);
     }
+
     @PostMapping("/indexPage")
     public ResponseEntity<ApiResponse> indexPage(@RequestParam String url) {
         if (!indexingService.indexPage(url)) {
