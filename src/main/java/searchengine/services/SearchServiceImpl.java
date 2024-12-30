@@ -56,12 +56,14 @@ public class SearchServiceImpl implements SearchService {
         return processSearchResults(uniqueLemmas, siteEntity, offset, limit);
     }
 
+    // Извлекает леммы из строки запроса.
     private Set<String> extractLemmas(String query) {
         Set<String> uniqueLemmas = lemmatizer.extractLemmasFromQuery(query);
         log.info("Extracted Lemmas: {}", uniqueLemmas);
         return uniqueLemmas;
     }
 
+    // Проверяет наличие сайта.
     private SiteEntity validateSite(String site) {
         if (site == null) {
             return null;
@@ -69,23 +71,27 @@ public class SearchServiceImpl implements SearchService {
         return siteRepository.findByUrl(site).orElse(null);
     }
 
+    // Подсчитывает количество страниц для заданного сайта.
     private long countPages(SiteEntity siteEntity) {
         long totalPages = (siteEntity == null) ? pageRepository.count() : pageRepository.countBySite(siteEntity);
         log.info("Total pages for search: {}", totalPages);
         return totalPages;
     }
 
+    // Фильтрует леммы в зависимости от общего количества страниц.
     private void filterLemmas(Set<String> uniqueLemmas, long totalPages) {
         Set<String> excludedLemmas = getExcludedLemmas(uniqueLemmas, totalPages);
         uniqueLemmas.removeAll(excludedLemmas);
         log.info("Remaining Lemmas after exclusion: {}", uniqueLemmas);
     }
 
+    // Создает пустой ответ с сообщением.
     private SearchResponse createEmptyResponse(String message) {
         log.info("Returning empty search result: {}", message);
         return new SearchResponse(true, 0, Collections.emptyList(), message);
     }
 
+    // Обрабатывает результаты поиска.
     private SearchResponse processSearchResults(Set<String> uniqueLemmas, SiteEntity siteEntity,
                                                 int offset,
                                                 int limit) {
@@ -104,6 +110,7 @@ public class SearchServiceImpl implements SearchService {
         return generateSearchResponse(matchingPages, pageRelevanceMap, uniqueLemmas, offset, limit);
     }
 
+    // Генерирует ответ для поиска.
     private SearchResponse generateSearchResponse(Set<PageEntity> matchingPages, Map<PageEntity,
             Float> pageRelevanceMap, Set<String> uniqueLemmas, int offset, int limit) {
         float maxRelevance = Collections.max(pageRelevanceMap.values());
@@ -119,6 +126,8 @@ public class SearchServiceImpl implements SearchService {
         return new SearchResponse(true, results.size(), results, null);
     }
 
+
+    // Преобразует страницу в результат поиска.
     private SearchResult mapToSearchResult(PageEntity page, Set<String> uniqueLemmas, float absoluteRelevance,
                                            float maxRelevance) {
         float relativeRelevance = absoluteRelevance / maxRelevance;
@@ -138,6 +147,7 @@ public class SearchServiceImpl implements SearchService {
                 .build();
     }
 
+    // Извлекает заголовок из контента.
     private String extractTitleFromContent(String content) {
         int titleStart = content.indexOf("<title>");
         int titleEnd = content.indexOf("</title>");
@@ -147,6 +157,7 @@ public class SearchServiceImpl implements SearchService {
         return "No title";
     }
 
+    // Вычисляет абсолютную релевантность страниц.
     private Map<PageEntity, Float> calculateAbsoluteRelevance(Set<PageEntity> matchingPages) {
         Map<PageEntity, Float> pageRelevanceMap = new HashMap<>();
         log.info("Calculating absolute relevance for pages: {}", matchingPages.size());
@@ -168,6 +179,7 @@ public class SearchServiceImpl implements SearchService {
         return pageRelevanceMap;
     }
 
+    // Получает леммы для страницы.
     private Set<LemmaEntity> getLemmasForPage(PageEntity page) {
         Set<LemmaEntity> lemmasOnPage = new HashSet<>();
 
@@ -181,6 +193,7 @@ public class SearchServiceImpl implements SearchService {
         return lemmasOnPage;
     }
 
+    // Получает рейтинг для леммы на странице.
     private float getRankForLemmaAndPage(LemmaEntity lemma, PageEntity page) {
         Optional<IndexEntity> indexEntityOpt = indexRepository.findByPageAndLemma(page, lemma);
         if (indexEntityOpt.isPresent()) {
@@ -189,6 +202,7 @@ public class SearchServiceImpl implements SearchService {
         return 0f;
     }
 
+    // Находит страницы для заданных лемм и сайта.
     private Set<PageEntity> findPagesForLemma(Set<String> lemmas, SiteEntity siteEntity) {
         log.info("Finding pages for lemmas: {} and siteEntity: {}",
                 lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
@@ -199,11 +213,13 @@ public class SearchServiceImpl implements SearchService {
         return findMatchingPages(lemmaEntities, siteEntity);
     }
 
+    // Получает сущности лемм из репозитория.
     private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
         // Получение списка лемм из репозитория, упорядоченных по частоте
         return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
     }
 
+    // Находит страницы, соответствующие леммам.
     private Set<PageEntity> findMatchingPages(List<LemmaEntity> lemmaEntities, SiteEntity siteEntity) {
         Set<PageEntity> pages = new HashSet<>();
 
@@ -221,6 +237,7 @@ public class SearchServiceImpl implements SearchService {
         return pages;
     }
 
+    // Фильтрует страницы по сайту.
     private Set<PageEntity> filterPagesBySite(Set<PageEntity> lemmaPages, SiteEntity siteEntity) {
         if (siteEntity == null) {
             return lemmaPages;
@@ -231,6 +248,7 @@ public class SearchServiceImpl implements SearchService {
                 .collect(Collectors.toSet());
     }
 
+    // Обновляет список страниц на основе лемм.
     private void updatePagesBasedOnLemma
             (Set<PageEntity> pages, Set<PageEntity> lemmaPages, LemmaEntity lemmaEntity) {
         if (pages.isEmpty()) {
@@ -248,6 +266,7 @@ public class SearchServiceImpl implements SearchService {
 
     }
 
+    // Получает страницы для конкретной леммы.
     private Set<PageEntity> getPagesForLemma(LemmaEntity lemmaEntity) {
         Set<PageEntity> pages = new HashSet<>();
 
@@ -265,6 +284,7 @@ public class SearchServiceImpl implements SearchService {
         return pages;
     }
 
+    // Получает леммы, которые нужно исключить.
     private Set<String> getExcludedLemmas(Set<String> lemmas, long totalPages) {
         Set<String> excludedLemmas = new HashSet<>();
         log.info("Filtering excluded lemmas. Total pages: {}", totalPages);
@@ -290,6 +310,7 @@ public class SearchServiceImpl implements SearchService {
         return excludedLemmas;
     }
 
+    // Создает сниппет на основе контента и лемм.
     private String createSnippet(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
         // Найти совпадения лемм в тексте
         Map<Integer, String> matches = findMatches(content, lemmas, lemmatizer);
@@ -313,6 +334,7 @@ public class SearchServiceImpl implements SearchService {
         return snippet.trim();
     }
 
+    // Находит лучший сниппет, если предыдущий не подходит.
     private String findBetterSnippet(String content, Map<Integer, String> matches,
                                      Set<String> lemmas, Lemmatizer lemmatizer) {
         String[] words = content.split("\\s+");
@@ -339,6 +361,7 @@ public class SearchServiceImpl implements SearchService {
         return snippet.toString();
     }
 
+    // Находит совпадения лемм в тексте.
     private Map<Integer, String> findMatches(String content, Set<String> lemmas, Lemmatizer lemmatizer) {
         Map<Integer, String> matches = new TreeMap<>();
         String[] words = content.split("\\s+");
@@ -354,6 +377,7 @@ public class SearchServiceImpl implements SearchService {
         return matches;
     }
 
+    // Строит сниппет на основе найденных совпадений.
     private String buildSnippet(String[] words, Map<Integer, String> matches,
                                 Set<String> lemmas, Lemmatizer lemmatizer) {
         StringBuilder snippet = new StringBuilder();
@@ -373,14 +397,17 @@ public class SearchServiceImpl implements SearchService {
         return snippet.toString().trim();
     }
 
+    // Вычисляет начальный индекс для сниппета.
     private int calculateStartIndex(int index) {
         return Math.max(0, index - SNIPPET_WINDOW / 2);
     }
 
+    // Вычисляет конечный индекс для сниппета.
     private int calculateEndIndex(int index, int wordsLength) {
         return Math.min(wordsLength, index + SNIPPET_WINDOW / 2);
     }
 
+    // Добавляет слова в сниппет.
     private int appendWordsToSnippet(StringBuilder snippet, String[] words, int start, int end,
                                      Set<String> lemmas, Lemmatizer lemmatizer, int snippetLength) {
         for (int i = start; i < end && snippetLength < SNIPPET_WINDOW; i++) {
@@ -395,12 +422,14 @@ public class SearchServiceImpl implements SearchService {
         return snippetLength;
     }
 
+    // Проверяет, является ли слово релевантным для лемм.
     private boolean isWordRelevant(String word, Set<String> lemmas, Lemmatizer lemmatizer) {
         String cleanedWord = cleanWord(word);
         Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(cleanedWord);
         return !Collections.disjoint(lemmas, wordLemmas);
     }
 
+    // Очищает слово от нежелательных символов.
     private String cleanWord(String word) {
         return word.replaceAll("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase();
     }
