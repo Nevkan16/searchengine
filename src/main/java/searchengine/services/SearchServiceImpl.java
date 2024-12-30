@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 0.6;
+    private static final double PERCENT_THRESHOLD = 1;
     private static final int SNIPPET_WINDOW = 30;
     private Set<String> lemmas;
     private Map<Integer, String> matches;
@@ -323,16 +323,36 @@ public class SearchServiceImpl implements SearchService {
         return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
     }
 
-    // Находит страницы для заданных лемм и сайта.
     private Set<PageEntity> findPagesForLemma(Set<String> lemmas, SiteEntity siteEntity) {
         log.info("Finding pages for lemmas: {} and siteEntity: {}",
                 lemmas, siteEntity == null ? "All sites" : siteEntity.getUrl());
 
+        // Извлечение лемм из базы
         List<LemmaEntity> lemmaEntities = fetchLemmaEntities(lemmas);
         log.info("Found {} lemma entities in repository.", lemmaEntities.size());
 
-        return findMatchingPages(lemmaEntities, siteEntity);
+        // Проверяем, связаны ли леммы с конкретным сайтом (если указан)
+        if (siteEntity != null) {
+            lemmaEntities = lemmaEntities.stream()
+                    .filter(lemma -> lemma.getSite().equals(siteEntity))
+                    .toList();
+            log.info("Filtered lemma entities for site {}: {}", siteEntity.getUrl(), lemmaEntities.size());
+        }
+
+        if (lemmaEntities.isEmpty()) {
+            log.warn("No lemma entities found for site {} and lemmas {}",
+                    siteEntity == null ? "All sites" : siteEntity.getUrl(), lemmas);
+            return Collections.emptySet();
+        }
+
+        // Найти страницы для лемм
+        Set<PageEntity> matchingPages = findMatchingPages(lemmaEntities, siteEntity);
+        log.info("Found {} matching pages for site {}.",
+                matchingPages.size(), siteEntity == null ? "All sites" : siteEntity.getUrl());
+
+        return matchingPages;
     }
+
 
     // Получает леммы для страницы.
     private Set<LemmaEntity> getLemmasForPage(PageEntity page) {
