@@ -42,30 +42,36 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     public SearchResponse search(String query, String site, int offset, int limit) {
-        this.currentQuery = query;
-        this.currentOffset = offset;
-        this.currentLimit = limit;
+        long startTime = System.nanoTime();
+        try {
+            this.currentQuery = query;
+            this.currentOffset = offset;
+            this.currentLimit = limit;
 
-        log.info("Starting search with query: '{}', site: '{}', offset: {}, limit: {}",
-                query, site, offset, limit);
+            log.info("Starting search with query: '{}', site: '{}', offset: {}, limit: {}",
+                    query, site, offset, limit);
 
-        Set<String> uniqueLemmas = extractLemmas();
-        if (uniqueLemmas.isEmpty()) {
-            return createEmptyResponse("No valid lemmas found");
+            Set<String> uniqueLemmas = extractLemmas();
+            if (uniqueLemmas.isEmpty()) {
+                return createEmptyResponse("No valid lemmas found");
+            }
+
+            this.currentSiteEntity = validateSite(site);
+            if (site != null && currentSiteEntity == null) {
+                return createEmptyResponse("Site not found");
+            }
+
+            long totalPages = countPages();
+            filterLemmas(uniqueLemmas, totalPages);
+
+            if (uniqueLemmas.isEmpty()) {
+                return createEmptyResponse(null);
+            }
+            return processSearchResults(uniqueLemmas);
+        } finally {
+            long elapsedTime = System.nanoTime() - startTime; // Рассчитываем время выполнения
+            log.info("Search execution time: {} ms", elapsedTime / 1_000_000); // Переводим наносекунды в миллисекунды
         }
-
-        this.currentSiteEntity = validateSite(site);
-        if (site != null && currentSiteEntity == null) {
-            return createEmptyResponse("Site not found");
-        }
-
-        long totalPages = countPages();
-        filterLemmas(uniqueLemmas, totalPages);
-
-        if (uniqueLemmas.isEmpty()) {
-            return createEmptyResponse(null);
-        }
-        return processSearchResults(uniqueLemmas);
     }
 
     // Создает пустой ответ с сообщением.
@@ -135,9 +141,20 @@ public class SearchServiceImpl implements SearchService {
         } else {
             log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(),
                     lemmaPages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
-            pages.retainAll(lemmaPages);
-            log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
+
+            Set<PageEntity> intersection = new HashSet<>(pages);
+            intersection.retainAll(lemmaPages);
+
+            if (!intersection.isEmpty()) {
+                pages.retainAll(lemmaPages);
+                log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
+            } else {
+                pages.addAll(lemmaPages);
+                log.info("No intersection found. Added pages: {}",
+                        lemmaPages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
+            }
         }
+
         if (lemmaPages.isEmpty()) {
             pages.clear();
         }
