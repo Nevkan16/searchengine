@@ -123,9 +123,9 @@ public class SearchServiceImpl implements SearchService {
             pages.addAll(lemmaPages);
         } else {
             log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(),
-                    lemmaPages.stream().map(PageEntity::getPath).toList());
+                    lemmaPages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
             pages.retainAll(lemmaPages);
-            log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).toList());
+            log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
         }
         if (lemmaPages.isEmpty()) {
             pages.clear();
@@ -175,19 +175,13 @@ public class SearchServiceImpl implements SearchService {
         return pages;
     }
 
-    // Очищает слово от нежелательных символов.
-    private String cleanWord(String word) {
-        return word.replaceAll("[^а-яА-Яa-zA-Z0-9]", "").toLowerCase();
-    }
-
     // Находит совпадения лемм в тексте.
     private Map<Integer, String> findMatches(String content) {
         matches = new TreeMap<>();
         words = content.split("\\s+");
 
         for (int i = 0; i < words.length; i++) {
-            String word = cleanWord(words[i]);
-            Set<String> wordsLemmas = lemmatizer.extractLemmasFromQuery(word);
+            Set<String> wordsLemmas = lemmatizer.extractLemmasFromQuery(words[i]);
             if (!Collections.disjoint(lemmas, wordsLemmas)) {
                 matches.put(i, words[i]);
             }
@@ -207,8 +201,7 @@ public class SearchServiceImpl implements SearchService {
 
     // Проверяет, является ли слово релевантным для лемм.
     private boolean isWordRelevant(String word) {
-        String cleanedWord = cleanWord(word);
-        Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(cleanedWord);
+        Set<String> wordLemmas = lemmatizer.extractLemmasFromQuery(word);
         return !Collections.disjoint(lemmas, wordLemmas);
     }
 
@@ -356,24 +349,19 @@ public class SearchServiceImpl implements SearchService {
 
     // Получает леммы для страницы.
     private Set<LemmaEntity> getLemmasForPage(PageEntity page) {
-        Set<LemmaEntity> lemmasOnPage = new HashSet<>();
-
         List<IndexEntity> indexEntities = indexRepository.findByPage(page);
         log.info("Page '{}' has {} index entries.", page.getPath(), indexEntities.size());
 
-        for (IndexEntity indexEntity : indexEntities) {
-            lemmasOnPage.add(indexEntity.getLemma());
-        }
-        return lemmasOnPage;
+        return indexEntities.stream()
+                .map(IndexEntity::getLemma)
+                .collect(Collectors.toSet());
     }
 
     // Получает рейтинг для леммы на странице.
     private float getRankForLemmaAndPage(LemmaEntity lemma, PageEntity page) {
-        Optional<IndexEntity> indexEntityOpt = indexRepository.findByPageAndLemma(page, lemma);
-        if (indexEntityOpt.isPresent()) {
-            return indexEntityOpt.get().getRank();
-        }
-        return 0f;
+        return indexRepository.findByPageAndLemma(page, lemma)
+                .map(IndexEntity::getRank)  // Получаем рейтинг через Optional
+                .orElse(0f);  // Если не найдено, возвращаем 0
     }
 
     // Вычисляет абсолютную релевантность страниц.
@@ -413,6 +401,5 @@ public class SearchServiceImpl implements SearchService {
         }
         return generateSearchResponse(matchingPages, pageRelevanceMap, uniqueLemmas, offset, limit);
     }
-
 }
 
