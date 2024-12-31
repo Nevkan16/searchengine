@@ -261,7 +261,8 @@ public class SearchServiceImpl implements SearchService {
     // Создает сниппет на основе контента и лемм.
     private String createSnippet(String content, Set<String> lemmas) {
         this.lemmas = lemmas;
-        matches = findMatches(content);
+        String cleanedText = lemmatizer.cleanHtml(content);
+        matches = findMatches(cleanedText);
 
         if (matches.isEmpty()) {
             return "";
@@ -287,12 +288,16 @@ public class SearchServiceImpl implements SearchService {
         return "No title";
     }
 
-    // Преобразует страницу в результат поиска.
     private SearchResult mapToSearchResult(PageEntity page, Set<String> uniqueLemmas, float absoluteRelevance,
                                            float maxRelevance) {
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
         String snippet = createSnippet(page.getContent(), uniqueLemmas);
+
+        String sizeFont = "<h3>%s</h3>";
+        // Формируем HTML для заголовка и сниппета
+        String formattedTitle = String.format(sizeFont, title);
+        String formattedSnippet = String.format(sizeFont, snippet);
 
         log.info("Page '{}' - Title: '{}', Snippet: '{}', Relative Relevance: {}",
                 page.getPath(), title, snippet, relativeRelevance);
@@ -301,8 +306,8 @@ public class SearchServiceImpl implements SearchService {
                 .site(page.getSite().getUrl())
                 .siteName(page.getSite().getName())
                 .uri(page.getPath())
-                .title(title)
-                .snippet(snippet)
+                .title(formattedTitle)
+                .snippet(formattedSnippet)
                 .relevance(relativeRelevance)
                 .build();
     }
