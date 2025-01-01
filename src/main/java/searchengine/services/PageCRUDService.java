@@ -53,21 +53,22 @@ public class PageCRUDService {
     @Transactional
     public PageEntity createPageIfNotExists(SiteEntity site, String path, int code, String content) {
         try {
-            // Проверка существования страницы
-            Optional<PageEntity> existingPage = pageRepository.findByPath(path);
+            Optional<PageEntity> existingPage = pageRepository.findBySiteAndPath(site, path);
             if (existingPage.isPresent()) {
-                log.info("Страница уже существует по пути: {}", path);
+                log.info("Страница уже существует по пути: {} для сайта: {}", path, site.getName());
                 return existingPage.get();
             }
 
             PageEntity pageEntity = createPageEntity(site, path, code, content);
             pageRepository.save(pageEntity);
             site.setStatusTime(LocalDateTime.now());
-            log.info("Страница создана по пути: {}. Текущее время: {}", path, site.getStatusTime());
+            log.info("Страница создана по пути: {} для сайта: {}. Текущее время: {}",
+                    path, site.getName(), site.getStatusTime());
 
             return pageEntity;
         } catch (Exception e) {
-            log.info("Ошибка при проверке и сохранении страницы: {}. Путь: {}", e.getMessage(), path);
+            log.error("Ошибка при проверке и сохранении страницы для пути: {} и сайта: {}. Сообщение: {}",
+                    path, site.getName(), e.getMessage(), e);
             return null;
         }
     }

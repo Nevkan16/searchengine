@@ -7,7 +7,11 @@ import java.util.List;
 
 @Data
 @Entity
-@Table(name = "page", indexes = @Index(name = "idx_page_path", columnList = "path"))
+@Table(
+        name = "page",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"site_id", "path"}),
+        indexes = @Index(name = "idx_page_path", columnList = "path")
+)
 public class PageEntity {
 
     @Id

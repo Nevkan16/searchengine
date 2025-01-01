@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 1;
+    private static final double PERCENT_THRESHOLD = 0.5;
     private static final int SNIPPET_WINDOW = 30;
     private Set<String> lemmas;
     private Map<Integer, String> matches;
@@ -310,6 +310,8 @@ public class SearchServiceImpl implements SearchService {
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
         String snippet = createSnippet(page.getContent(), uniqueLemmas);
+        log.info("Page '{}', Max relevance '{}',  Absolute relevance '{}', Relative relevance '{}'",
+                page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);
 
         String sizeFont = "<h3>%s</h3>";
         // Формируем HTML для заголовка и сниппета

@@ -108,7 +108,7 @@ public class SiteIndexingService {
     }
 
     private void scheduleStopProcessing() {
-        int stopDelaySeconds = 60;
+        int stopDelaySeconds = 30;
         scheduler.schedule(() -> {
             if (isProcessing.get() && !manuallyStopped) {
                 log.info("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
