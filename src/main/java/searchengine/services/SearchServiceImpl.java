@@ -23,8 +23,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 0.5;
-    private static final int SNIPPET_WINDOW = 30;
+    private static final double PERCENT_THRESHOLD = 0.45;
+    private static final int SNIPPET_WINDOW = 50;
     private Set<String> lemmas;
     private Map<Integer, String> matches;
     private String[] words;
@@ -69,8 +69,8 @@ public class SearchServiceImpl implements SearchService {
             }
             return processSearchResults(uniqueLemmas);
         } finally {
-            long elapsedTime = System.nanoTime() - startTime; // Рассчитываем время выполнения
-            log.info("Search execution time: {} ms", elapsedTime / 1_000_000); // Переводим наносекунды в миллисекунды
+            long elapsedTime = System.nanoTime() - startTime;
+            log.info("Search execution time: {} ms", elapsedTime / 1_000_000);
         }
     }
 
@@ -82,9 +82,7 @@ public class SearchServiceImpl implements SearchService {
 
     // Извлекает леммы из строки запроса.
     private Set<String> extractLemmas() {
-        Set<String> uniqueLemmas = lemmatizer.extractLemmasFromQuery(currentQuery);
-        log.info("Extracted Lemmas: {}", uniqueLemmas);
-        return uniqueLemmas;
+        return lemmatizer.extractLemmasFromQuery(currentQuery);
     }
 
     // Проверяет наличие сайта.
@@ -97,16 +95,12 @@ public class SearchServiceImpl implements SearchService {
 
     // Подсчитывает количество страниц для заданного сайта.
     private long countPages() {
-        long totalPages =
-                (currentSiteEntity == null) ? pageRepository.count() : pageRepository.countBySite(currentSiteEntity);
-        log.info("Total pages for search: {}", totalPages);
-        return totalPages;
+        return (currentSiteEntity == null) ? pageRepository.count() : pageRepository.countBySite(currentSiteEntity);
     }
 
     // Получает леммы, которые нужно исключить.
     private Set<String> getExcludedLemmas(Set<String> lemmas, long totalPages) {
         Set<String> excludedLemmas = new HashSet<>();
-        log.info("Filtering excluded lemmas. Total pages: {}", totalPages);
 
         List<LemmaEntity> lemmaEntities = lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
         for (LemmaEntity lemmaEntity : lemmaEntities) {
@@ -131,27 +125,20 @@ public class SearchServiceImpl implements SearchService {
     private void filterLemmas(Set<String> uniqueLemmas, long totalPages) {
         Set<String> excludedLemmas = getExcludedLemmas(uniqueLemmas, totalPages);
         uniqueLemmas.removeAll(excludedLemmas);
-        log.info("Remaining Lemmas after exclusion: {}", uniqueLemmas);
     }
 
     // Обновляет список страниц на основе лемм.
-    private void updatePagesBasedOnLemma(Set<PageEntity> pages, Set<PageEntity> lemmaPages, LemmaEntity lemmaEntity) {
+    private void updatePagesBasedOnLemma(Set<PageEntity> pages, Set<PageEntity> lemmaPages) {
         if (pages.isEmpty()) {
             pages.addAll(lemmaPages);
         } else {
-            log.info("Pages for lemma '{}': {}", lemmaEntity.getLemma(),
-                    lemmaPages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
-
             Set<PageEntity> intersection = new HashSet<>(pages);
             intersection.retainAll(lemmaPages);
 
             if (!intersection.isEmpty()) {
                 pages.retainAll(lemmaPages);
-                log.info("Pages after intersection: {}", pages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
             } else {
                 pages.addAll(lemmaPages);
-                log.info("No intersection found. Added pages: {}",
-                        lemmaPages.stream().map(PageEntity::getPath).collect(Collectors.toList()));
             }
         }
 
@@ -163,16 +150,10 @@ public class SearchServiceImpl implements SearchService {
     // Получает страницы для конкретной леммы.
     private Set<PageEntity> getPagesForLemma(LemmaEntity lemmaEntity) {
         Set<PageEntity> pages = new HashSet<>();
-        log.info("Extracting pages for LemmaEntity with id: {}, lemma: '{}', frequency: {}",
-                lemmaEntity.getId(), lemmaEntity.getLemma(), lemmaEntity.getFrequency());
-
         for (IndexEntity index : lemmaEntity.getIndexes()) {
             PageEntity page = index.getPage();
-            log.info("Found page with id: {}, path: '{}' for lemma: '{}'",
-                    page.getId(), page.getPath(), lemmaEntity.getLemma());
             pages.add(page);
         }
-        log.info("Total pages found for LemmaEntity with id: {}: {}", lemmaEntity.getId(), pages.size());
         return pages;
     }
 
@@ -194,12 +175,11 @@ public class SearchServiceImpl implements SearchService {
             Set<PageEntity> lemmaPages = getPagesForLemma(lemmaEntity);
             lemmaPages = filterPagesBySite(lemmaPages, siteEntity);
 
-            updatePagesBasedOnLemma(pages, lemmaPages, lemmaEntity);
+            updatePagesBasedOnLemma(pages, lemmaPages);
             if (pages.isEmpty() && lemmaPages.isEmpty()) {
                 break;
             }
         }
-        log.info("Found {} matching pages for lemmas.", pages.size());
         return pages;
     }
 
@@ -219,7 +199,22 @@ public class SearchServiceImpl implements SearchService {
 
     // Вычисляет начальный индекс для сниппета.
     private int calculateStartIndex(int index) {
-        return Math.max(0, index - SNIPPET_WINDOW / 2);
+        int startIndex = Math.max(0, index - SNIPPET_WINDOW / 2);
+
+        for (int i = startIndex; i < index; i++) {
+            if (Character.isUpperCase(words[i].charAt(0)) && i + 1 < words.length) {
+                if (!isEndOfSentence(words[i + 1])) {
+                    return i;
+                }
+            }
+        }
+
+        return startIndex;
+    }
+
+    // Проверка, является ли слово знаком окончания предложения.
+    private boolean isEndOfSentence(String word) {
+        return word.equals(".") || word.equals("!") || word.equals("?");
     }
 
     // Вычисляет конечный индекс для сниппета.
@@ -314,12 +309,9 @@ public class SearchServiceImpl implements SearchService {
                 page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);
 
         String sizeFont = "<h3>%s</h3>";
-        // Формируем HTML для заголовка и сниппета
+
         String formattedTitle = String.format(sizeFont, title);
         String formattedSnippet = String.format(sizeFont, snippet);
-
-        log.info("Page '{}' - Title: '{}', Snippet: '{}', Relative Relevance: {}",
-                page.getPath(), title, snippet, relativeRelevance);
 
         return SearchResult.builder()
                 .site(page.getSite().getUrl())
@@ -334,14 +326,12 @@ public class SearchServiceImpl implements SearchService {
     // Генерирует ответ для поиска.
     private SearchResponse generateSearchResponse(Set<String> uniqueLemmas) {
         float maxRelevance = Collections.max(currentPageRelevanceMap.values());
-        log.info("Max relevance score: {}", maxRelevance);
 
         List<SearchResult> results = currentMatchingPages.stream()
                 .skip(currentOffset)
                 .limit(currentLimit)
                 .map(page -> mapToSearchResult(page, uniqueLemmas, currentPageRelevanceMap.get(page), maxRelevance))
                 .toList();
-        log.info("Search completed. Total results: {}", results.size());
         return new SearchResponse(true, results.size(), results, null);
     }
 
@@ -356,34 +346,24 @@ public class SearchServiceImpl implements SearchService {
                 lemmas, currentSiteEntity == null ? "All sites" : currentSiteEntity.getUrl());
 
         List<LemmaEntity> lemmaEntities = fetchLemmaEntities(lemmas);
-        log.info("Found {} lemma entities in repository.", lemmaEntities.size());
 
         if (currentSiteEntity != null) {
             lemmaEntities = lemmaEntities.stream()
                     .filter(lemma -> lemma.getSite().equals(currentSiteEntity))
                     .toList();
-            log.info("Filtered lemma entities for site {}: {}", currentSiteEntity.getUrl(), lemmaEntities.size());
         }
 
         if (lemmaEntities.isEmpty()) {
-            log.warn("No lemma entities found for site {} and lemmas {}",
-                    currentSiteEntity == null ? "All sites" : currentSiteEntity.getUrl(), lemmas);
             return Collections.emptySet();
         }
 
-        // Найти страницы для лемм
-        Set<PageEntity> matchingPages = findMatchingPages(lemmaEntities, currentSiteEntity);
-        log.info("Found {} matching pages for site {}.",
-                matchingPages.size(), currentSiteEntity == null ? "All sites" : currentSiteEntity.getUrl());
-
-        return matchingPages;
+        return findMatchingPages(lemmaEntities, currentSiteEntity);
     }
 
 
     // Получает леммы для страницы.
     private Set<LemmaEntity> getLemmasForPage(PageEntity page) {
         List<IndexEntity> indexEntities = indexRepository.findByPage(page);
-        log.info("Page '{}' has {} index entries.", page.getPath(), indexEntities.size());
 
         return indexEntities.stream()
                 .map(IndexEntity::getLemma)
@@ -393,30 +373,26 @@ public class SearchServiceImpl implements SearchService {
     // Получает рейтинг для леммы на странице.
     private float getRankForLemmaAndPage(LemmaEntity lemma, PageEntity page) {
         return indexRepository.findByPageAndLemma(page, lemma)
-                .map(IndexEntity::getRank)  // Получаем рейтинг через Optional
-                .orElse(0f);  // Если не найдено, возвращаем 0
+                .map(IndexEntity::getRank)
+                .orElse(0f);
     }
 
     // Вычисляет абсолютную релевантность страниц.
     private Map<PageEntity, Float> calculateAbsoluteRelevance() {
         Map<PageEntity, Float> pageRelevanceMap = new HashMap<>();
-        log.info("Calculating absolute relevance for pages: {}", currentMatchingPages.size());
 
         for (PageEntity page : currentMatchingPages) {
             float totalRank = 0;
 
             Set<LemmaEntity> lemmasOnPage = getLemmasForPage(page);
-            log.info("Page '{}' has {} lemmas.", page.getPath(), lemmasOnPage.size());
 
             for (LemmaEntity lemmaEntity : lemmasOnPage) {
                 totalRank += getRankForLemmaAndPage(lemmaEntity, page);
             }
             pageRelevanceMap.put(page, totalRank);
         }
-        log.info("Calculated relevance for {} pages.", pageRelevanceMap.size());
         return pageRelevanceMap;
     }
-
 
     // Обрабатывает результаты поиска.
     private SearchResponse processSearchResults(Set<String> uniqueLemmas) {

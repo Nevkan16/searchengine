@@ -101,8 +101,6 @@ public class ApiController {
             @RequestParam(value = "offset", defaultValue = "0") int offset,
             @RequestParam(value = "limit", defaultValue = "10") int limit) {
 
-        log.info("Search request received: query='{}', site='{}', offset={}, limit={}", query, site, offset, limit);
-
         // Проверяем, что запрос не пустой
         if (query == null || query.isBlank()) {
             SearchResponse response = new SearchResponse(false, null, null, ErrorMessages.EMPTY_QUERY);
