@@ -33,6 +33,9 @@ public class SearchServiceImpl implements SearchService {
     private int currentLimit;
     private Set<PageEntity> currentMatchingPages;
     private Map<PageEntity, Float> currentPageRelevanceMap;
+    private Set<String> uniqueLemmas;
+    private float absoluteRelevance;
+    private float maxRelevance;
     private SiteEntity currentSiteEntity;
     private final Lemmatizer lemmatizer;
     private final SiteRepository siteRepository;
@@ -300,8 +303,8 @@ public class SearchServiceImpl implements SearchService {
         return "No title";
     }
 
-    private SearchResult mapToSearchResult(PageEntity page, Set<String> uniqueLemmas, float absoluteRelevance,
-                                           float maxRelevance) {
+    // Преобразует страницу в результат поиска.
+    private SearchResult mapToSearchResult(PageEntity page) {
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
         String snippet = createSnippet(page.getContent(), uniqueLemmas);
@@ -325,17 +328,22 @@ public class SearchServiceImpl implements SearchService {
 
     // Генерирует ответ для поиска.
     private SearchResponse generateSearchResponse(Set<String> uniqueLemmas) {
-        float maxRelevance = Collections.max(currentPageRelevanceMap.values());
+        this.uniqueLemmas = uniqueLemmas;
+        this.maxRelevance = Collections.max(currentPageRelevanceMap.values());
 
         List<SearchResult> results = currentMatchingPages.stream()
                 .skip(currentOffset)
                 .limit(currentLimit)
-                .map(page -> mapToSearchResult(page, uniqueLemmas, currentPageRelevanceMap.get(page), maxRelevance))
+                .map(page -> {
+                    this.absoluteRelevance = currentPageRelevanceMap.get(page);
+                    return mapToSearchResult(page);
+                })
                 .toList();
+
         return new SearchResponse(true, results.size(), results, null);
     }
 
-    // Получает сущности лемм из репозитория.
+        // Получает сущности лемм из репозитория.
     private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
         return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
     }
