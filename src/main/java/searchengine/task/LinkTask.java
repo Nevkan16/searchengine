@@ -59,7 +59,10 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private void processTask() {
-        if (depth > maxDepth || stopProcessing.get()) {
+        int currentDepth = calculateDepth(baseUrl);
+
+        if (currentDepth > maxDepth || stopProcessing.get()) {
+            log.info("Stopping task at depth {}: Reached maxDepth or processing stopped. URL: {}", currentDepth, baseUrl);
             return;
         }
 
@@ -71,12 +74,10 @@ public class LinkTask extends RecursiveTask<Void> {
             if (!stopProcessing.get()) {
                 invokeAll(subTasks);
             }
-        } catch (Exception e) {
-            log.error("Error processing links for: {}", baseUrl, e);
+        } catch (Exception ignored) {
+
         }
     }
-
-
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
         if (stopProcessing.get()) return new HashSet<>();
@@ -96,10 +97,16 @@ public class LinkTask extends RecursiveTask<Void> {
             if (stopProcessing.get()) break;
 
             String linkHref = link.attr("abs:href");
+            int calculatedDepth = calculateDepth(linkHref);
+
+            // Проверка глубины, пропускать нужно только если глубина > maxDepth
+            if (calculatedDepth > maxDepth) {
+                continue;
+            }
 
             if (linkProcessor.shouldVisitLink(linkHref)) {
                 linkProcessor.addVisitedLink(linkHref);
-                log.info("Processing: {}", linkHref);
+                log.info("Processing link at depth {}: {}", calculatedDepth, linkHref);
 
                 processLink(linkHref, htmlLoader, siteEntity, subTasks);
             }
@@ -127,7 +134,6 @@ public class LinkTask extends RecursiveTask<Void> {
         }
     }
 
-
     private void savePageToDatabase(String url, Document document) {
         SiteEntity siteEntity = null;
         try {
@@ -146,6 +152,29 @@ public class LinkTask extends RecursiveTask<Void> {
         }
     }
 
+    private int calculateDepth(String url) {
+        if (url == null || url.isEmpty()) {
+            log.error("URL is null or empty: {}", url);
+            return depth;
+        }
+        try {
+            URI uri = new URI(url);
+            URI baseUri = new URI(baseUrl);
+            String uriPath = uri.getPath();
+            String baseUriPath = baseUri.getPath();
+            if (uriPath == null || baseUriPath == null) {
+                return depth;
+            }
+            String relativePath = uriPath.replaceFirst(baseUriPath, "");
+            if (relativePath.isEmpty()) {
+                return 0; // Это значит, что URL на том же уровне, что и базовый
+            }
+            return relativePath.split("/").length;
+        } catch (Exception e) {
+            log.error("Error calculating depth for URL: {}", url, e);
+            return depth; // В случае ошибки возвращаем текущую глубину
+        }
+    }
 
 
     private String getBaseDomain() {
@@ -158,7 +187,8 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        return new LinkTask(childDoc, linkHref, depth + 1, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
+        int calculatedDepth = calculateDepth(linkHref);
+        return new LinkTask(childDoc, linkHref, calculatedDepth, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
     }
 
     public static void resetStopFlag() {

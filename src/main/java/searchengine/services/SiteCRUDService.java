@@ -96,14 +96,19 @@ public class SiteCRUDService {
 
     @Transactional
     public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
+        if (siteEntity == null) {
+            return;
+        }
+
+        siteEntity.setLastError(errorMessage);
+        siteEntity.setStatus(SiteEntity.Status.FAILED);
+        siteEntity.setStatusTime(LocalDateTime.now());
+
         try {
-            siteEntity.setLastError(errorMessage);
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-            siteEntity.setStatusTime(LocalDateTime.now());
             siteRepository.save(siteEntity);
-            log.info("Обновлена ошибка для сайта: {}", siteEntity.getUrl());
         } catch (Exception e) {
-            log.error("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl(), e);
+            log.info("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl());
+            log.error("Подробности ошибки: ", e);
         }
     }
 
@@ -202,21 +207,6 @@ public class SiteCRUDService {
 
         System.out.println("Все сайты удалены из базы данных.");
     }
-    @Transactional
-    public void resetAutoIncrement(String tableName) {
-        try {
-            entityManager.createNativeQuery("ALTER TABLE " + tableName + " AUTO_INCREMENT = 1").executeUpdate();
-            log.info("Автоинкремент сброшен для таблицы: " + tableName);
-        } catch (Exception e) {
-            log.error("Ошибка при сбросе автоинкремента для таблицы " + tableName + ": " + e.getMessage());
-        }
-    }
-
-    void resetAutoIncrementForAllTables(List<String> tableNames) {
-        log.info("Сброс автоинкремента для всех таблиц...");
-        tableNames.forEach(this::resetAutoIncrement);
-        log.info("Сброс автоинкремента завершён.");
-    }
 
     @Transactional
     public void deleteSiteData() {
@@ -262,10 +252,7 @@ public class SiteCRUDService {
 
     public SiteEntity getSiteByUrl(String url) {
         return siteRepository.findByUrl(url)
-                .orElseGet(() -> {
-                    log.error("Сайт не найден по URL: {}", url);
-                    return null;
-                });
+                .orElse(null);
     }
 
     public void isDatabaseEmpty() {

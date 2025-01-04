@@ -52,6 +52,11 @@ public class PageCRUDService {
 
     @Transactional
     public PageEntity createPageIfNotExists(SiteEntity site, String path, int code, String content) {
+        if (site == null) {
+            log.error("Ошибка: сайт не может быть null. Путь: {}", path);
+            return null;
+        }
+
         try {
             Optional<PageEntity> existingPage = pageRepository.findBySiteAndPath(site, path);
             if (existingPage.isPresent()) {

@@ -1,6 +1,8 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.model.LemmaEntity;
@@ -11,14 +13,20 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LemmaCRUDService {
 
     private final LemmaRepository lemmaRepository;
 
     @Transactional
     public LemmaEntity updateLemmaEntity(String lemmaText, SiteEntity site) {
+        if (site == null) {
+            return null;
+        }
+
         LemmaEntity lemma = lemmaRepository.findByLemmaAndSite(lemmaText, site)
                 .orElseGet(() -> createLemmaEntity(lemmaText, site));
+
         int updatedFrequency = lemma.getFrequency() + 1;
         lemma.setFrequency(updatedFrequency);
 

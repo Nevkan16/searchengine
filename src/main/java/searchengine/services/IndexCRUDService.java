@@ -19,12 +19,20 @@ public class IndexCRUDService {
 
     @Transactional
     public void createIndex(PageEntity page, LemmaEntity lemma, float rank) {
+        if (page == null) {
+            return;
+        }
+        if (lemma == null) {
+            return;
+        }
         if (!indexRepository.existsByPageAndLemma(page, lemma)) {
+            if (lemma.getSite() == null) {
+                return;
+            }
             IndexEntity index = new IndexEntity();
             populateIndexEntity(index, page, lemma, rank);
             indexRepository.save(index);
-        }  //            log.warn("Index with page {} and lemma {} already exists", page.getId(), lemma.getId());
-
+        }
     }
 
     @Transactional
