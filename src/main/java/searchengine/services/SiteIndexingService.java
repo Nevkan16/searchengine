@@ -11,10 +11,7 @@ import searchengine.task.LinkTask;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Service
@@ -24,10 +21,7 @@ public class SiteIndexingService {
     private ForkJoinPool forkJoinPool = new ForkJoinPool();
     private final AtomicBoolean isProcessing = new AtomicBoolean(false);
     private final FakeConfig fakeConfig;
-    private final ScheduledExecutorService scheduler =
-            Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
-
-    private boolean manuallyStopped = false;
+    private final AtomicBoolean manuallyStopped = new AtomicBoolean(false);
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
 
@@ -38,7 +32,7 @@ public class SiteIndexingService {
         }
 
         isProcessing.set(true);
-        manuallyStopped = false;
+        manuallyStopped.set(false);
         LinkTask.stopProcessing();
         LinkTask.resetStopFlag();
 
@@ -55,12 +49,12 @@ public class SiteIndexingService {
 
             } catch (Exception e) {
                 log.error("Error during indexing: " + e.getMessage());
+                e.printStackTrace();
             } finally {
                 isProcessing.set(false);
             }
         });
 
-        scheduleStopProcessing();
     }
 
     private void setupForkJoinPool() {
@@ -92,50 +86,44 @@ public class SiteIndexingService {
     }
 
     private void waitForTasksCompletion(List<LinkTask> tasks) {
+        int canceledTask = 0;
         for (LinkTask task : tasks) {
-            task.join();
+            try {
+                task.join();
+            } catch (CancellationException ignored) {
+                canceledTask++;
+            }
+        }
+        if (canceledTask > 0) {
+            log.info("Количество отмененных задача: " + canceledTask);
         }
     }
 
     private void completeIndexing(List<String> sitesUrls) {
-        if (!manuallyStopped) {
+        sitesUrls.forEach(siteCRUDService::updateSiteStatusToIndexed);
+        if (!manuallyStopped.get()) {
             log.info("Indexing completed automatically.");
-            sitesUrls.forEach(siteCRUDService::updateSiteStatusToIndexed);
         } else {
-            siteCRUDService.handleManualStop();
             log.info("Indexing stopped by user.");
         }
     }
 
-    private void scheduleStopProcessing() {
-        int stopDelaySeconds = 30;
-        scheduler.schedule(() -> {
-            if (isProcessing.get() && !manuallyStopped) {
-                log.info("Automatically stopping processing after " + stopDelaySeconds + " seconds...");
-                LinkTask.stopProcessing();
-                if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
-                    forkJoinPool.shutdownNow();
-                }
-                isProcessing.set(false);
-            }
-        }, stopDelaySeconds, TimeUnit.SECONDS);
-    }
-
     public synchronized void stopProcessing() {
         if (!isProcessing.get()) {
-            log.info("Processing is not running!");
+            log.info("Процесс не запущен!");
             return;
         }
 
-        manuallyStopped = true;
-        log.info("Stopping processing manually...");
-        LinkTask.stopProcessing();
+        if (manuallyStopped.compareAndSet(false, true)) {
+            log.info("Stopping processing manually...");
+            LinkTask.stopProcessing();
 
-        if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
-            forkJoinPool.shutdownNow();
+            if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
+                forkJoinPool.shutdownNow();
+            }
+
+            isProcessing.set(false);
         }
-
-        isProcessing.set(false);
     }
 
     public boolean isIndexing() {

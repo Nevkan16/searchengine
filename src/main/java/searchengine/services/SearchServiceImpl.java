@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
 
-    private static final double PERCENT_THRESHOLD = 0.45;
+    private static final double PERCENT_THRESHOLD = 0.47;
     private static final int SNIPPET_WINDOW = 50;
     private Set<String> lemmas;
     private Map<Integer, String> matches;

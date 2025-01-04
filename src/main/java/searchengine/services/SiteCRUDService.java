@@ -162,6 +162,7 @@ public class SiteCRUDService {
         siteEntity.setUrl(formattedUrl);
         siteEntity.setName(site.getName());
         siteEntity.setStatus(SiteEntity.Status.INDEXING);
+        log.info("Статус сайта обновлена на INDEXING:");
         siteEntity.setStatusTime(LocalDateTime.now());
         siteEntity.setLastError(null);
     }
