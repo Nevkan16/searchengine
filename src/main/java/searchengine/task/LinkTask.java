@@ -16,7 +16,7 @@ import searchengine.utils.HtmlLoader;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -36,25 +36,46 @@ public class LinkTask extends RecursiveTask<Void> {
 
     @Override
     protected Void compute() {
+        try {
+            ForkJoinPool.managedBlock(new ForkJoinPool.ManagedBlocker() {
+                private boolean done = false;
+
+                @Override
+                public boolean block() {
+                    processTask();
+                    done = true;
+                    return true;
+                }
+
+                @Override
+                public boolean isReleasable() {
+                    return done;
+                }
+            });
+        } catch (InterruptedException e) {
+            log.error("Task for URL {} was interrupted", baseUrl, e);
+        }
+        return null;
+    }
+
+    private void processTask() {
         if (depth > maxDepth || stopProcessing.get()) {
-            return null;
+            return;
         }
 
         LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
-        linkProcessor.addVisitedLink(baseUrl); // Добавляем главную страницу в список посещённых
+        linkProcessor.addVisitedLink(baseUrl);
 
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
             if (!stopProcessing.get()) {
                 invokeAll(subTasks);
             }
-        } catch (CancellationException e) {
-            log.warn("Task for URL {} was cancelled", baseUrl);
         } catch (Exception e) {
             log.error("Error processing links for: {}", baseUrl, e);
         }
-        return null;
     }
+
 
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
