@@ -75,7 +75,7 @@ public class SiteIndexingService {
             try {
                 Document doc = Jsoup.connect(siteUrl).get();
                 LinkTask linkTask = new LinkTask(
-                        doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
+                        doc, siteUrl, 0, 1, fakeConfig, siteCRUDService, pageProcessor);
                 tasks.add(linkTask);
                 forkJoinPool.execute(linkTask);
             } catch (IOException e) {

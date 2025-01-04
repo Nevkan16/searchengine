@@ -44,7 +44,7 @@ public class ConfigUtil {
     }
 
     // получаем список сайтов без дубликатов
-    List<Site> getAvailableSites() {
+    public List<Site> getAvailableSites() {
         if (sitesList == null || sitesList.getSites().isEmpty()) {
             return Collections.emptyList();
         }

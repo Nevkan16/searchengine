@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
+import searchengine.utils.ConfigUtil;
 import searchengine.utils.EntityTableUtil;
 
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class SiteDataExecutor {
     private final EntityTableUtil entityTableService;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final ConfigUtil configUtil;
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
@@ -39,7 +41,8 @@ public class SiteDataExecutor {
         isRunning.set(true);
 
         try {
-            List<Site> configuredSites = siteCRUDService.getAllSites();
+            siteCRUDService.deleteSitesNotInConfig(configUtil.getAvailableSites());
+            List<Site> configuredSites = configUtil.getAvailableSites();
             deleteSitesInParallel(configuredSites);
             entityTableService.resetAutoIncrementForAllTables();
             createOrUpdateSites(configuredSites);

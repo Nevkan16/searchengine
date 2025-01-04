@@ -2,7 +2,6 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Site;
@@ -162,7 +161,7 @@ public class SiteCRUDService {
         siteEntity.setUrl(formattedUrl);
         siteEntity.setName(site.getName());
         siteEntity.setStatus(SiteEntity.Status.INDEXING);
-        log.info("Статус сайта обновлена на INDEXING:");
+        log.info("Статус сайта обновлен на INDEXING:");
         siteEntity.setStatusTime(LocalDateTime.now());
         siteEntity.setLastError(null);
     }
@@ -312,6 +311,4 @@ public class SiteCRUDService {
             log.error("Ошибка при удалении сайта: {}", siteUrl, e);
         }
     }
-
-
 }
