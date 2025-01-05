@@ -24,6 +24,7 @@ public class SiteIndexingService {
     private final AtomicBoolean manuallyStopped = new AtomicBoolean(false);
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
+    private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -72,6 +73,7 @@ public class SiteIndexingService {
 
         for (String siteUrl : sitesUrls) {
             try {
+                siteStopFlags.put(siteUrl, new AtomicBoolean(false)); // Инициализация флага
                 Document doc = Jsoup.connect(siteUrl).get();
                 LinkTask linkTask = new LinkTask(
                         doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
@@ -82,6 +84,14 @@ public class SiteIndexingService {
             }
         }
         return tasks;
+    }
+
+    private boolean allSitesStopped() {
+        return siteStopFlags.values().stream().allMatch(AtomicBoolean::get);
+    }
+
+    public static AtomicBoolean getStopFlagForSite(String siteUrl) {
+        return siteStopFlags.get(siteUrl);
     }
 
     private void waitForTasksCompletion(List<LinkTask> tasks) {
@@ -99,11 +109,19 @@ public class SiteIndexingService {
     }
 
     private void completeIndexing(List<String> sitesUrls) {
-        sitesUrls.forEach(siteCRUDService::updateSiteStatusToIndexed);
+        sitesUrls.forEach(siteUrl -> {
+            siteCRUDService.updateSiteStatusToIndexed(siteUrl);
+            siteStopFlags.remove(siteUrl);
+        });
+
         if (!manuallyStopped.get()) {
             log.info("Indexing completed automatically.");
         } else {
             log.info("Indexing stopped by user.");
+        }
+
+        if (allSitesStopped()) {
+            LinkTask.stopProcessing(); // Установка глобального флага
         }
     }
 
@@ -116,6 +134,17 @@ public class SiteIndexingService {
         if (manuallyStopped.compareAndSet(false, true)) {
             log.info("Stopping processing manually...");
             LinkTask.stopProcessing();
+
+            List<LinkTask> tasks = new ArrayList<>();
+
+            siteStopFlags.keySet().forEach(siteUrl -> {
+                AtomicBoolean stopFlag = getStopFlagForSite(siteUrl);
+                if (stopFlag != null) {
+                    stopFlag.set(true);
+                }
+            });
+
+            waitForTasksCompletion(tasks);
 
             if (forkJoinPool != null && !forkJoinPool.isShutdown()) {
                 forkJoinPool.shutdownNow();

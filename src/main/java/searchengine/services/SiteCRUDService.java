@@ -95,13 +95,31 @@ public class SiteCRUDService {
     }
 
     @Transactional
+    public void updateLastError(SiteEntity siteEntity, String errorMessage) {
+        if (siteEntity == null) {
+            return;
+        }
+        siteEntity.setLastError(errorMessage);
+        siteEntity.setStatusTime(LocalDateTime.now());
+        try {
+            siteRepository.save(siteEntity);
+        } catch (Exception e) {
+            log.info("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl());
+        }
+    }
+
+    @Transactional
     public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
         if (siteEntity == null) {
             return;
         }
 
         siteEntity.setLastError(errorMessage);
-        siteEntity.setStatus(SiteEntity.Status.FAILED);
+        if (siteEntity.getPages() == null) {
+            siteEntity.setStatus(SiteEntity.Status.FAILED);
+            log.info("Установлен статус FAILED для сайта: {}", siteEntity.getUrl());
+        }
+
         siteEntity.setStatusTime(LocalDateTime.now());
 
         try {

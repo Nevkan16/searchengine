@@ -11,6 +11,7 @@ import searchengine.constants.ErrorMessages;
 import searchengine.model.SiteEntity;
 import searchengine.services.PageProcessor;
 import searchengine.services.SiteCRUDService;
+import searchengine.services.SiteIndexingService;
 import searchengine.utils.HtmlLoader;
 
 import java.net.URI;
@@ -25,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Getter
 public class LinkTask extends RecursiveTask<Void> {
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
-
     private final Document doc;
     private final String baseUrl;
     private final int depth;
@@ -59,10 +59,14 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private void processTask() {
-        int currentDepth = calculateDepth(baseUrl);
+        AtomicBoolean stopFlag = SiteIndexingService.getStopFlagForSite(getBaseUrl());
+        if (stopFlag == null || stopFlag.get()) {
+            return;
+        }
 
-        if (currentDepth > maxDepth || stopProcessing.get()) {
-            log.info("Stopping task at depth {}: Reached maxDepth or processing stopped. URL: {}", currentDepth, baseUrl);
+        int currentDepth = calculateDepth(baseUrl);
+        if (currentDepth > maxDepth) {
+            log.info("Stopping task at depth {}: Reached maxDepth. URL: {}", currentDepth, baseUrl);
             return;
         }
 
@@ -71,21 +75,21 @@ public class LinkTask extends RecursiveTask<Void> {
 
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
-            if (!stopProcessing.get()) {
+            if (!stopFlag.get()) {
                 if (subTasks.isEmpty()) {
                     log.info("No more links to process at this depth: {}", currentDepth);
-                    stopProcessing.set(true);
+                    stopFlag.set(true);
                     return;
                 }
                 invokeAll(subTasks);
             }
         } catch (Exception ignored) {
-
         }
     }
 
     private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
-        if (stopProcessing.get()) return new HashSet<>();
+        AtomicBoolean stopFlag = SiteIndexingService.getStopFlagForSite(getBaseUrl());
+        if (stopFlag == null || stopFlag.get()) return new HashSet<>();
 
         Set<LinkTask> subTasks = new HashSet<>();
         HtmlLoader htmlLoader = new HtmlLoader();
@@ -99,12 +103,11 @@ public class LinkTask extends RecursiveTask<Void> {
         }
 
         for (Element link : linkProcessor.extractLinks(doc)) {
-            if (stopProcessing.get()) break;
+            if (stopFlag.get()) break;
 
             String linkHref = link.attr("abs:href");
             int calculatedDepth = calculateDepth(linkHref);
 
-            // Проверка глубины, пропускать нужно только если глубина > maxDepth
             if (calculatedDepth > maxDepth) {
                 continue;
             }
