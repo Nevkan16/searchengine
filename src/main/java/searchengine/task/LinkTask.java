@@ -15,6 +15,7 @@ import searchengine.services.SiteIndexingService;
 import searchengine.utils.HtmlLoader;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -162,7 +163,7 @@ public class LinkTask extends RecursiveTask<Void> {
 
     private int calculateDepth(String url) {
         if (url == null || url.isEmpty()) {
-            log.error("URL is null or empty: {}", url);
+            log.info("URL is null or empty: {}", url);
             return depth;
         }
         try {
@@ -175,15 +176,16 @@ public class LinkTask extends RecursiveTask<Void> {
             }
             String relativePath = uriPath.replaceFirst(baseUriPath, "");
             if (relativePath.isEmpty()) {
-                return 0; // Это значит, что URL на том же уровне, что и базовый
+                return 0;
             }
             return relativePath.split("/").length;
+        } catch (URISyntaxException e) {
+            log.info("Invalid URL syntax: {}", url);
         } catch (Exception e) {
-            log.error("Error calculating depth for URL: {}", url, e);
-            return depth; // В случае ошибки возвращаем текущую глубину
+            log.info("Unexpected error while calculating depth for URL: {}", url);
         }
+        return depth;
     }
-
 
     private String getBaseDomain() {
         try {
