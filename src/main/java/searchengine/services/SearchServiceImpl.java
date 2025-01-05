@@ -107,6 +107,8 @@ public class SearchServiceImpl implements SearchService {
 
         List<LemmaEntity> lemmaEntities = lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
         for (LemmaEntity lemmaEntity : lemmaEntities) {
+            String lemma = lemmaEntity.getLemma();
+
             long lemmaPageCount = lemmaEntity.getIndexes().stream()
                     .map(IndexEntity::getPage)
                     .distinct()
@@ -115,9 +117,14 @@ public class SearchServiceImpl implements SearchService {
             double percentage = (double) lemmaPageCount / totalPages;
 
             if (percentage > PERCENT_THRESHOLD) {
-                excludedLemmas.add(lemmaEntity.getLemma());
+                if (lemmas.size() == 1) {
+
+                    log.info("Keeping lemma '{}' because it is the only lemma in the query.", lemma);
+                    continue;
+                }
+                excludedLemmas.add(lemma);
                 log.info("Excluding lemma '{}' with frequency {} on {}% of total pages.",
-                        lemmaEntity.getLemma(), lemmaPageCount, percentage * 100);
+                        lemma, lemmaPageCount, percentage * 100);
             }
         }
         log.info("Excluded lemmas: {}", excludedLemmas);
