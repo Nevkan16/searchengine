@@ -14,6 +14,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class LinkProcessor {
     private static final Set<String> visitedLinks = Collections.synchronizedSet(ConcurrentHashMap.newKeySet());
+    private static final Set<String> INVALID_EXTENSIONS = Set.of(
+            ".pdf", ".jpg", ".png", ".zip", ".docx", ".xlsx", ".gif", ".mp4", ".mp3", ".php", ".jpeg"
+    );
     private final String baseDomain;
 
     public Elements extractLinks(Document doc) {
@@ -21,26 +24,37 @@ public class LinkProcessor {
     }
 
     public boolean shouldVisitLink(String linkHref) {
-        return isValidLink(linkHref) && !visitedLinks.contains(linkHref) && !isMainPage(linkHref);
+        String normalizedLink = normalizeUrl(linkHref);
+        return isValidLink(normalizedLink) && visitedLinks.add(normalizedLink) && !isMainPage(normalizedLink);
     }
 
-    public void addVisitedLink(String linkHref) {
-        visitedLinks.add(linkHref);
-    }
-
-    private boolean isMainPage(String linkHref) {
+    private String normalizeUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return "";
+        }
         try {
-            URI uri = new URI(linkHref);
+            URI uri = new URI(url).normalize();
+            String scheme = uri.getScheme() != null ? uri.getScheme() : "http";
+            String host = uri.getHost();
+            String path = (uri.getPath() == null || uri.getPath().isEmpty()) ? "/" : uri.getPath();
+            return new URI(scheme, null, host, uri.getPort(), path, null, null).toString();
+        } catch (URISyntaxException e) {
+            return ""; // Возвращаем пустую строку для некорректных URL
+        }
+    }
+
+    private boolean isMainPage(String url) {
+        try {
+            URI uri = new URI(url);
             URI baseUri = new URI(baseDomain);
             return normalizeDomain(uri.getHost()).equals(normalizeDomain(baseUri.getHost())) &&
-                    (uri.getPath() == null || uri.getPath().isEmpty() || uri.getPath().equals("/"));
+                    "/".equals(uri.getPath());
         } catch (URISyntaxException e) {
             return false;
         }
     }
 
     public static boolean isEmptyPage(String content) {
-        // Простой способ проверки на пустую страницу: если нет содержимого внутри <body>
         return content == null || content.trim().isEmpty() || content.equals("<html><head></head><body></body></html>");
     }
 
@@ -48,34 +62,21 @@ public class LinkProcessor {
         visitedLinks.clear();
     }
 
-    public boolean isValidLink(String linkHref) {
-        Set<String> INVALID_EXTENSIONS = Set.of(
-                ".pdf", ".jpg", ".png", ".zip", ".docx", ".xlsx", ".gif", ".mp4", ".mp3", ".php", ".jpeg"
-        );
+    public boolean isValidLink(String url) {
         try {
-            URI uri = new URI(linkHref);
-            String linkDomain = uri.getHost();
-            String normalizedBaseDomain = normalizeDomain(baseDomain);
-            String normalizedLinkDomain = normalizeDomain(linkDomain);
-
+            URI uri = new URI(url);
             String scheme = uri.getScheme();
-            if (scheme == null || (!scheme.equals("http") && !scheme.equals("https"))) {
-                return false;
-            }
-
-            if (linkDomain == null) {
-                return true;
-            }
-
-            if (!normalizedBaseDomain.equals(normalizedLinkDomain)) {
-                return false;
-            }
-
-            if (uri.getFragment() != null || linkHref.isEmpty()) {
-                return false;
-            }
-
+            String host = uri.getHost();
             String path = uri.getPath();
+
+            if (scheme == null || (!scheme.equals("http") && !scheme.equals("https")) || host == null) {
+                return false;
+            }
+
+            if (!normalizeDomain(baseDomain).equals(normalizeDomain(host))) {
+                return false;
+            }
+
             if (path != null) {
                 String lowerCasePath = path.toLowerCase(Locale.ROOT);
                 for (String ext : INVALID_EXTENSIONS) {
@@ -85,19 +86,14 @@ public class LinkProcessor {
                 }
             }
             return true;
-
         } catch (URISyntaxException e) {
             return false;
         }
     }
 
     private String normalizeDomain(String domain) {
-        if (domain == null) return null;
+        if (domain == null) return "";
         String[] parts = domain.split("\\.");
-        if (parts.length > 2) {
-            return parts[parts.length - 2] + "." + parts[parts.length - 1];
-        }
-        return domain;
+        return parts.length > 2 ? parts[parts.length - 2] + "." + parts[parts.length - 1] : domain;
     }
 }
-

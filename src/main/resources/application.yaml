@@ -24,8 +24,8 @@ indexing-settings:
       name: Лента.ру
     - url: https://www.playback.ru
       name: PlayBack.Ru
-    - url: https://www.svetlovka.ru
-      name: Svetlovka
+#    - url: https://www.svetlovka.ru
+#      name: Svetlovka
 #    - url: https://dombulgakova.ru
 #      name: dombulgakova
 #    - url: http://localhost:8080/pages/page1.html

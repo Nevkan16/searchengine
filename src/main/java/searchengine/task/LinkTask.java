@@ -72,7 +72,6 @@ public class LinkTask extends RecursiveTask<Void> {
         }
 
         LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
-        linkProcessor.addVisitedLink(baseUrl);
 
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
@@ -114,7 +113,6 @@ public class LinkTask extends RecursiveTask<Void> {
             }
 
             if (linkProcessor.shouldVisitLink(linkHref)) {
-                linkProcessor.addVisitedLink(linkHref);
                 log.info("Processing link at depth {}: {}", calculatedDepth, linkHref);
 
                 processLink(linkHref, htmlLoader, siteEntity, subTasks);
@@ -131,7 +129,7 @@ public class LinkTask extends RecursiveTask<Void> {
             if (childDoc == null) {
                 log.error("Failed to load child document for URL: {}", linkHref);
                 siteCRUDService.updateSiteError(siteEntity, ErrorMessages.ERROR_LOAD_CHILD_PAGE);
-                return; // Пропускаем текущую ссылку
+                return;
             }
 
             savePageToDatabase(linkHref, childDoc);
