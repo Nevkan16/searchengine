@@ -15,5 +15,7 @@ public class SearchResponse {
     private boolean result;
     private Integer count;
     private List<SearchResult> data;
+    private Integer currentPage;
+    private Integer totalPages;
     private String error;
 }

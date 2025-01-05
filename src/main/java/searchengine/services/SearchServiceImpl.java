@@ -80,7 +80,7 @@ public class SearchServiceImpl implements SearchService {
     // Создает пустой ответ с сообщением.
     private SearchResponse createEmptyResponse(String message) {
         log.info("Returning empty search result: {}", message);
-        return new SearchResponse(true, 0, Collections.emptyList(), message);
+        return new SearchResponse(true, 0, Collections.emptyList(), 0, 0, message);
     }
 
     // Извлекает леммы из строки запроса.
@@ -338,7 +338,14 @@ public class SearchServiceImpl implements SearchService {
         this.uniqueLemmas = uniqueLemmas;
         this.maxRelevance = Collections.max(currentPageRelevanceMap.values());
 
+        int totalResults = currentMatchingPages.size();
+        int totalPages = (int) Math.ceil((double) totalResults / currentLimit);
+        int currentPage = (currentOffset / currentLimit) + 1;
+
         List<SearchResult> results = currentMatchingPages.stream()
+                .sorted((p1, p2) -> Float.compare(
+                        currentPageRelevanceMap.get(p2),
+                        currentPageRelevanceMap.get(p1))) // Сортировка по релевантности
                 .skip(currentOffset)
                 .limit(currentLimit)
                 .map(page -> {
@@ -347,7 +354,7 @@ public class SearchServiceImpl implements SearchService {
                 })
                 .toList();
 
-        return new SearchResponse(true, results.size(), results, null);
+        return new SearchResponse(true, totalResults, results, currentPage, totalPages, null);
     }
 
         // Получает сущности лемм из репозитория.
