@@ -27,6 +27,7 @@ public class SiteDataExecutor {
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final ConfigUtil configUtil;
+    private final Object lock = new Object();
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
@@ -98,8 +99,6 @@ public class SiteDataExecutor {
             log.error("Ошибка при удалении сайтов", e);
         }
     }
-
-    private final Object lock = new Object(); // Глобальный объект блокировки
 
     private void createOrUpdateSites(List<Site> configuredSites) {
         log.info("Создание или обновление сайтов...");

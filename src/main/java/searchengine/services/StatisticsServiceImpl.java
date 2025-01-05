@@ -9,6 +9,7 @@ import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
+import searchengine.utils.ConfigUtil;
 
 import java.time.ZoneId;
 import java.util.List;
@@ -20,6 +21,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private final SitesList sites;
     private final SiteRepository siteRepository;
+    private final ConfigUtil configUtil;
 
     @Override
     public StatisticsResponse getStatistics() {
@@ -56,16 +58,17 @@ public class StatisticsServiceImpl implements StatisticsService {
     private List<DetailedStatisticsItem> getDetailedStatistics() {
         List<SiteEntity> siteEntities = siteRepository.findAll();
 
-        return sites.getSites().stream().map(siteConfig -> {
+        return sites.getSites().stream().map(site -> {
+            String formattedUrl = configUtil.formatURL(site.getUrl());
 
             SiteEntity siteEntity = siteEntities.stream()
-                    .filter(dbSite -> dbSite.getUrl().equals(siteConfig.getUrl()))
+                    .filter(dbSite -> dbSite.getUrl().equals(formattedUrl))
                     .findFirst()
                     .orElse(null);
 
             DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setUrl(siteConfig.getUrl());
-            item.setName(siteConfig.getName());
+            item.setUrl(formattedUrl);
+            item.setName(site.getName());
 
             item.setStatus(siteEntity != null ? siteEntity.getStatus().name() : "");
             item.setStatusTime(siteEntity != null ? siteEntity.getStatusTime()
@@ -77,5 +80,4 @@ public class StatisticsServiceImpl implements StatisticsService {
             return item;
         }).collect(Collectors.toList());
     }
-
 }
