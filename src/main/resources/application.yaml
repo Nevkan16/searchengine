@@ -20,16 +20,16 @@ logging:
 
 indexing-settings:
   sites:
-    - url: https://www.lenta.ru
-      name: Лента.ру
+#    - url: https://www.lenta.ru
+#      name: Лента.ру
     - url: https://www.playback.ru
       name: PlayBack.Ru
-    - url: https://www.svetlovka.ru
-      name: Svetlovka
+#    - url: https://www.svetlovka.ru
+#      name: Svetlovka
 #    - url: https://dombulgakova.ru
 #      name: dombulgakova
-    - url: https://dimonvideo.ru/
-      name: dimonvideo
+#    - url: https://dimonvideo.ru/
+#      name: dimonvideo
 #    - url: http://localhost:8080/pages/page1.html
 #      name: Fake Page 1
 #    - url: http://localhost:8080/pages/page2.html

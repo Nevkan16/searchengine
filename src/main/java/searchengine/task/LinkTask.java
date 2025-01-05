@@ -106,14 +106,14 @@ public class LinkTask extends RecursiveTask<Void> {
             if (stopFlag.get()) break;
 
             String linkHref = link.attr("abs:href");
-            int calculatedDepth = calculateDepth(linkHref);
+            int currentDepth = calculateDepth(linkHref);
 
-            if (calculatedDepth > maxDepth) {
+            if (currentDepth > maxDepth) {
                 continue;
             }
 
             if (linkProcessor.shouldVisitLink(linkHref)) {
-                log.info("Processing link at depth {}: {}", calculatedDepth, linkHref);
+                log.info("Processing link at depth {}: {}", currentDepth, linkHref);
 
                 processLink(linkHref, htmlLoader, siteEntity, subTasks);
             }
@@ -176,7 +176,7 @@ public class LinkTask extends RecursiveTask<Void> {
             if (relativePath.isEmpty()) {
                 return 0;
             }
-            return relativePath.split("/").length;
+            return Math.max(0, relativePath.split("/").length - 1);
         } catch (URISyntaxException e) {
             log.info("Invalid URL syntax: {}", url);
         } catch (Exception e) {
@@ -195,8 +195,8 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private LinkTask createSubTask(Document childDoc, String linkHref) {
-        int calculatedDepth = calculateDepth(linkHref);
-        return new LinkTask(childDoc, linkHref, calculatedDepth, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
+        int currentDepth = calculateDepth(linkHref);
+        return new LinkTask(childDoc, linkHref, currentDepth, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
     }
 
     public static void resetStopFlag() {

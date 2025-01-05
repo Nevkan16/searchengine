@@ -66,16 +66,12 @@ public class SiteDataExecutor {
         initializeExecutorService();
 
         List<SiteEntity> sitesToDelete = new ArrayList<>();
-        configuredSites.forEach(site -> {
-            executorService.submit(() -> {
-                siteRepository.findByUrl(site.getUrl()).ifPresent(siteEntity -> {
-                    log.info("Сайт найден в базе данных: {}", site.getUrl());
-                    synchronized (sitesToDelete) {
-                        sitesToDelete.add(siteEntity);
-                    }
-                });
-            });
-        });
+        configuredSites.forEach(site -> executorService.submit(() -> siteRepository.findByUrl(site.getUrl()).ifPresent(siteEntity -> {
+            log.info("Сайт найден в базе данных: {}", site.getUrl());
+            synchronized (sitesToDelete) {
+                sitesToDelete.add(siteEntity);
+            }
+        })));
 
         shutdownExecutor();
         log.info("Количество сайтов, найденных для удаления: {}", sitesToDelete.size());

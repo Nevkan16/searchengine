@@ -211,7 +211,7 @@ public class SiteCRUDService {
             siteRepository.delete(siteToDelete);
         }
 
-        System.out.println("Удаление завершено. Удалено сайтов: " + sitesToDelete.size());
+        log.info("Удаление завершено. Удалено сайтов: {}", sitesToDelete.size());
     }
 
     @Transactional
@@ -223,7 +223,7 @@ public class SiteCRUDService {
         lemmaRepository.deleteAll();
         indexRepository.deleteAll();
 
-        System.out.println("Все сайты удалены из базы данных.");
+        log.info("Все сайты удалены из базы данных.");
     }
 
     @Transactional

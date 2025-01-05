@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @RequiredArgsConstructor
 public class LinkProcessor {
@@ -55,7 +56,9 @@ public class LinkProcessor {
     }
 
     public static boolean hasHtmlDoctype(String content) {
-        return content != null && content.toLowerCase(Locale.ROOT).contains("<!doctype html>");
+        if (content == null) return false;
+        String htmlDoctypePattern = "<!doctype\\s+html.*?>";
+        return Pattern.compile(htmlDoctypePattern, Pattern.CASE_INSENSITIVE).matcher(content).find();
     }
 
     public static boolean isEmptyPage(String content) {

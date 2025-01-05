@@ -27,7 +27,7 @@ public class SiteIndexingService {
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
-    private final int maxDepth = 3;
+    private final int maxDepth = 2;
 
     public void processSites() {
         if (isProcessing.get()) {
