@@ -54,8 +54,14 @@ public class LinkProcessor {
         }
     }
 
+    public static boolean hasHtmlDoctype(String content) {
+        return content != null && content.toLowerCase(Locale.ROOT).contains("<!doctype html>");
+    }
+
     public static boolean isEmptyPage(String content) {
-        return content == null || content.trim().isEmpty() || content.equals("<html><head></head><body></body></html>");
+        return content == null || content.trim().isEmpty() ||
+                content.equals("<html><head></head><body></body></html>") ||
+                !hasHtmlDoctype(content);
     }
 
     public static void clearVisitedLinks() {

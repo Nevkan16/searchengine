@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Getter
 public class SiteIndexingService {
 
     private ForkJoinPool forkJoinPool = new ForkJoinPool();
@@ -25,6 +27,7 @@ public class SiteIndexingService {
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
+    private final int maxDepth = 3;
 
     public void processSites() {
         if (isProcessing.get()) {
@@ -76,7 +79,7 @@ public class SiteIndexingService {
                 siteStopFlags.put(siteUrl, new AtomicBoolean(false)); // Инициализация флага
                 Document doc = Jsoup.connect(siteUrl).get();
                 LinkTask linkTask = new LinkTask(
-                        doc, siteUrl, 0, 2, fakeConfig, siteCRUDService, pageProcessor);
+                        doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessor);
                 tasks.add(linkTask);
                 forkJoinPool.execute(linkTask);
             } catch (IOException e) {
