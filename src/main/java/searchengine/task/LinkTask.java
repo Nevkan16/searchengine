@@ -72,6 +72,11 @@ public class LinkTask extends RecursiveTask<Void> {
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
             if (!stopProcessing.get()) {
+                if (subTasks.isEmpty()) {
+                    log.info("No more links to process at this depth: {}", currentDepth);
+                    stopProcessing.set(true);
+                    return;
+                }
                 invokeAll(subTasks);
             }
         } catch (Exception ignored) {
