@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,9 +28,11 @@ public class SiteIndexingService {
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
-    private final int maxDepth = 2;
+    private final int maxDepth = 1;
+    private static final int TASK_TIMEOUT_SECONDS = 10;
 
     public void processSites() {
+        log.info("Запуск индексации страниц сайта..");
         if (isProcessing.get()) {
             log.info("Processing is already running!");
             return;
@@ -44,7 +47,7 @@ public class SiteIndexingService {
 
         forkJoinPool.execute(() -> {
             try {
-                List<String> sitesUrls = getSitesForIndexing();
+                List<String> sitesUrls = siteCRUDService.getSitesForIndexing();
                 List<LinkTask> tasks = processEachSite(sitesUrls);
 
                 waitForTasksCompletion(tasks);
@@ -67,17 +70,13 @@ public class SiteIndexingService {
         forkJoinPool = new ForkJoinPool();
     }
 
-    private List<String> getSitesForIndexing() {
-        return siteCRUDService.getSitesForIndexing();
-    }
-
     private List<LinkTask> processEachSite(List<String> sitesUrls) {
         List<LinkTask> tasks = new ArrayList<>();
 
         for (String siteUrl : sitesUrls) {
             try {
                 siteStopFlags.put(siteUrl, new AtomicBoolean(false)); // Инициализация флага
-                Document doc = Jsoup.connect(siteUrl).get();
+                Document doc = Jsoup.connect(siteUrl).timeout(TASK_TIMEOUT_SECONDS * 1000).get();
                 LinkTask linkTask = new LinkTask(
                         doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessor);
                 tasks.add(linkTask);

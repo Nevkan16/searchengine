@@ -133,7 +133,7 @@ public class LinkTask extends RecursiveTask<Void> {
             }
 
             savePageToDatabase(linkHref, childDoc);
-            subTasks.add(createSubTask(childDoc, linkHref));
+            subTasks.add(new LinkTask(childDoc, linkHref, depth, maxDepth, fakeConfig, siteCRUDService, pageProcessor));
 
         } catch (Exception e) {
             log.error("Unexpected error while processing URL: {}", linkHref, e);
@@ -192,11 +192,6 @@ public class LinkTask extends RecursiveTask<Void> {
             log.error("Invalid base URL: {}", baseUrl, e);
             return "";
         }
-    }
-
-    private LinkTask createSubTask(Document childDoc, String linkHref) {
-        int currentDepth = calculateDepth(linkHref);
-        return new LinkTask(childDoc, linkHref, currentDepth, maxDepth, fakeConfig, siteCRUDService, pageProcessor);
     }
 
     public static void resetStopFlag() {

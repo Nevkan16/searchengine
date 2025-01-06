@@ -31,7 +31,7 @@ public class SiteDataExecutor {
 
     public void refreshAllSitesData() {
         if (isRunning.get()) {
-            log.info("Обновление уже запущено. Ожидайте завершения.");
+            log.info("Обновление новых данных уже запущено. Ожидайте завершения.");
             return;
         }
 
@@ -66,7 +66,9 @@ public class SiteDataExecutor {
         initializeExecutorService();
 
         List<SiteEntity> sitesToDelete = new ArrayList<>();
-        configuredSites.forEach(site -> executorService.submit(() -> siteRepository.findByUrl(site.getUrl()).ifPresent(siteEntity -> {
+        configuredSites.forEach(site ->
+                executorService.submit(() -> siteRepository
+                        .findByUrl(site.getUrl()).ifPresent(siteEntity -> {
             log.info("Сайт найден в базе данных: {}", site.getUrl());
             synchronized (sitesToDelete) {
                 sitesToDelete.add(siteEntity);
@@ -115,7 +117,7 @@ public class SiteDataExecutor {
     }
 
     private void shutdownExecutor() {
-        log.info("Ожидание завершения всех потоков...");
+        log.info("Ожидание завершения всех потоков ExecutorService...");
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(3, TimeUnit.SECONDS)) {
@@ -127,6 +129,6 @@ public class SiteDataExecutor {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
-        log.info("Все потоки завершены.");
+        log.info("Все потоки ExecutorService завершены.");
     }
 }
