@@ -9,6 +9,8 @@ import searchengine.config.FakeConfig;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
@@ -20,23 +22,59 @@ public class HtmlLoader {
     private boolean httpCodeMethodDetermined = false;
 
     public Document fetchHtmlDocument(String url, FakeConfig fakeConfig) {
-        if (htmlMethodDetermined) {
-            return useFakeConfigForHtml ? fetchWithFakeConfig(url, fakeConfig) : fetchWithoutFakeConfig(url);
+        return determineMethod(
+                url,
+                fakeConfig,
+                htmlMethodDetermined,
+                useFakeConfigForHtml,
+                this::fetchWithFakeConfig,
+                this::fetchWithoutFakeConfig,
+                (result) -> {
+                    this.useFakeConfigForHtml = result;
+                    this.htmlMethodDetermined = true;
+                }
+        );
+    }
+
+    public int getHttpStatusCode(String url, FakeConfig fakeConfig) {
+        return determineMethod(
+                url,
+                fakeConfig,
+                httpCodeMethodDetermined,
+                useFakeConfigForHttpCode,
+                this::getStatusCodeWithFakeConfig,
+                this::getStatusCodeWithoutFakeConfig,
+                (result) -> {
+                    this.useFakeConfigForHttpCode = result;
+                    this.httpCodeMethodDetermined = true;
+                }
+        );
+    }
+
+    private <T> T determineMethod(
+            String url,
+            FakeConfig fakeConfig,
+            boolean methodDetermined,
+            boolean useFakeConfig,
+            BiFunction<String, FakeConfig, T> withFakeConfig,
+            BiFunction<String, FakeConfig, T> withoutFakeConfig,
+            Consumer<Boolean> methodSetter
+    ) {
+        if (methodDetermined) {
+            return useFakeConfig ? withFakeConfig.apply(url, fakeConfig) : withoutFakeConfig.apply(url, fakeConfig);
         }
 
-        Document document = fetchWithFakeConfig(url, fakeConfig);
-        if (document != null) {
-            useFakeConfigForHtml = true;
-            htmlMethodDetermined = true;
-            return document;
+        T result = withFakeConfig.apply(url, fakeConfig);
+        if (result != null) {
+            methodSetter.accept(true);
+            return result;
         }
 
-        document = fetchWithoutFakeConfig(url);
-        if (document != null) {
-            useFakeConfigForHtml = false;
-            htmlMethodDetermined = true;
+        result = withoutFakeConfig.apply(url, fakeConfig);
+        if (result != null) {
+            methodSetter.accept(false);
         }
-        return document;
+        return result;
     }
 
     private Document fetchWithFakeConfig(String url, FakeConfig fakeConfig) {
@@ -57,7 +95,7 @@ public class HtmlLoader {
         return null;
     }
 
-    private Document fetchWithoutFakeConfig(String url) {
+    private Document fetchWithoutFakeConfig(String url, FakeConfig fakeConfig) {
         try {
             log.info("Загрузка URL без FakeConfig");
             return Jsoup.connect(url)
@@ -69,74 +107,37 @@ public class HtmlLoader {
         return null;
     }
 
-    public void showHtml(String url, FakeConfig fakeConfig) {
-        Document doc = fetchHtmlDocument(url, fakeConfig);
-        if (doc != null) {
-            System.out.println(doc);
-        } else {
-            log.error("HTML-документ не удалось загрузить для URL: {}", url);
-        }
-    }
-
-    public int getHttpStatusCode(String url, FakeConfig fakeConfig) {
-        if (httpCodeMethodDetermined) {
-            return useFakeConfigForHttpCode ? getStatusCodeWithFakeConfig(url, fakeConfig) : getStatusCodeWithoutFakeConfig(url);
-        }
-
-        int statusCode = getStatusCodeWithFakeConfig(url, fakeConfig);
-        if (statusCode != -1) {
-            useFakeConfigForHttpCode = true;
-            httpCodeMethodDetermined = true;
-            return statusCode;
-        }
-
-        statusCode = getStatusCodeWithoutFakeConfig(url);
-        if (statusCode != -1) {
-            useFakeConfigForHttpCode = false;
-            httpCodeMethodDetermined = true;
-        }
-        return statusCode;
-    }
-
     private int getStatusCodeWithFakeConfig(String url, FakeConfig fakeConfig) {
-        try {
-            URI uri = new URI(url);
-            HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", fakeConfig.getUserAgent());
-            connection.setRequestProperty("Referer", fakeConfig.getReferrer());
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
-
-            int statusCode = connection.getResponseCode();
-            log.info("HTTP-код через FakeConfig для {}: {}", url, statusCode);
-            connection.disconnect();
-            return statusCode;
-        } catch (IOException e) {
-            log.warn("Ошибка получения HTTP-кода через FakeConfig: {}. Причина: {}", url, e.getMessage());
-        } catch (Exception e) {
-            log.error("Ошибка при HTTP-коде через FakeConfig: {}. Причина: {}", url, e.getMessage());
-        }
-        return -1;
+        return fetchHttpStatusCode(url, fakeConfig, true);
     }
 
-    private int getStatusCodeWithoutFakeConfig(String url) {
+    private int getStatusCodeWithoutFakeConfig(String url, FakeConfig fakeConfig) {
+        return fetchHttpStatusCode(url, fakeConfig, false);
+    }
+
+    private int fetchHttpStatusCode(String url, FakeConfig fakeConfig, boolean useFakeConfig) {
         try {
-            log.info("Получаем HTTP-код без FakeConfig: {}", url);
             URI uri = new URI(url);
             HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
 
+            if (useFakeConfig && fakeConfig != null) {
+                connection.setRequestProperty("User-Agent", fakeConfig.getUserAgent());
+                connection.setRequestProperty("Referer", fakeConfig.getReferrer());
+            }
+
             int statusCode = connection.getResponseCode();
-            log.info("HTTP-код без FakeConfig для {}: {}", url, statusCode);
+            log.info("HTTP-код {} через {}: {}", url, useFakeConfig ? "FakeConfig" : "без FakeConfig", statusCode);
             connection.disconnect();
             return statusCode;
         } catch (IOException e) {
-            log.warn("Ошибка HTTP-кода без FakeConfig: {}. Причина: {}", url, e.getMessage());
+            log.warn("Ошибка HTTP-кода {} через {}: Причина: {}",
+                    url, useFakeConfig ? "FakeConfig" : "без FakeConfig", e.getMessage());
         } catch (Exception e) {
-            log.error("Ошибка при HTTP-коде без FakeConfig: {}. Причина: {}", url, e.getMessage());
+            log.error("Ошибка HTTP-кода {} через {}: Причина: {}",
+                    url, useFakeConfig ? "FakeConfig" : "без FakeConfig", e.getMessage());
         }
         return -1;
     }
