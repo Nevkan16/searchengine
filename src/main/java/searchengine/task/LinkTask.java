@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequiredArgsConstructor
 @Getter
 public class LinkTask extends RecursiveTask<Void> {
-    private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
     private final Document doc;
     private final String baseUrl;
     private final int depth;
