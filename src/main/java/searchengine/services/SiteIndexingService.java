@@ -3,16 +3,17 @@ package searchengine.services;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.task.LinkTask;
+import searchengine.utils.HtmlLoader;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
@@ -30,7 +31,8 @@ public class SiteIndexingService {
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
     private final int maxDepth = 1;
-    private static final int TASK_TIMEOUT_SECONDS = 10;
+
+    private final HtmlLoader htmlLoader;
 
     public void processSites() {
         log.info("Запуск индексации страниц сайта..");
@@ -76,14 +78,19 @@ public class SiteIndexingService {
 
         for (String siteUrl : sitesUrls) {
             try {
-                siteStopFlags.put(siteUrl, new AtomicBoolean(false)); // Инициализация флага
-                Document doc = Jsoup.connect(siteUrl).timeout(TASK_TIMEOUT_SECONDS * 1000).get();
-                LinkTask linkTask = new LinkTask(
-                        doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessor);
-                tasks.add(linkTask);
-                forkJoinPool.execute(linkTask);
-            } catch (IOException e) {
-                log.info("Error processing site: " + siteUrl);
+                siteStopFlags.put(siteUrl, new AtomicBoolean(false));
+                Document doc = htmlLoader.fetchHtmlDocument(siteUrl, fakeConfig);
+
+                if (doc != null) {
+                    LinkTask linkTask = new LinkTask(
+                            doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessor);
+                    tasks.add(linkTask);
+                    forkJoinPool.execute(linkTask);
+                } else {
+                    log.info("Не удалось загрузить HTML-документ для сайта: {}", siteUrl);
+                }
+            } catch (Exception e) {
+                log.info("Ошибка при обработке сайта: {}. {}", sitesUrls, e.getMessage());
             }
         }
         return tasks;

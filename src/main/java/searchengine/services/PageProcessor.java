@@ -14,7 +14,6 @@ import searchengine.utils.EntityTableUtil;
 import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -36,7 +35,7 @@ public class PageProcessor {
 
     public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
         String path = new URI(url).getPath();
-        int statusCode = getHttpStatus(url);
+        int statusCode = htmlLoader.getHttpStatusCode(url, fakeConfig);
         String content = document.html();
 
         if (LinkProcessor.isEmptyPage(content)) {
@@ -97,14 +96,6 @@ public class PageProcessor {
         } catch (Exception e) {
             log.error("Ошибка при извлечении path из URL: {}", url, e);
             return null;
-        }
-    }
-
-    private int getHttpStatus(String url) throws IOException {
-        try {
-            return htmlLoader.getHttpStatusCode(url);
-        } catch (Exception e) {
-            throw new IOException("Failed to get HTTP status code for URL: " + url, e);
         }
     }
 

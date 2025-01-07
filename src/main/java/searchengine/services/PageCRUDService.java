@@ -72,7 +72,7 @@ public class PageCRUDService {
             return pageEntity;
         } catch (Exception e) {
             log.error("Ошибка при проверке и сохранении страницы для пути: {} и сайта: {}. Сообщение: {}",
-                    path, site.getName(), e.getMessage(), e);
+                    path, site.getName(), e.getMessage());
             return null;
         }
     }

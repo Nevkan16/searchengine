@@ -13,6 +13,7 @@ import java.net.URI;
 @Slf4j
 @Service
 public class HtmlLoader {
+    private static final int TASK_TIMEOUT_SECONDS = 10;
 
     public Document fetchHtmlDocument(String url, FakeConfig fakeConfig) {
         try {
@@ -20,6 +21,7 @@ public class HtmlLoader {
             return Jsoup.connect(url)
                     .userAgent(fakeConfig.getUserAgent()) // Использование значений из FakeConfig
                     .referrer(fakeConfig.getReferrer())
+                    .timeout(TASK_TIMEOUT_SECONDS * 1000)
                     .get();
         } catch (IOException e) {
             log.warn("Не удалось загрузить URL: {}. Причина: {}", url, e.getMessage());
@@ -41,13 +43,15 @@ public class HtmlLoader {
         }
     }
 
-    public int getHttpStatusCode(String url) {
+    public int getHttpStatusCode(String url, FakeConfig fakeConfig) {
         try {
             URI uri = new URI(url);
             HttpURLConnection connection = (HttpURLConnection) uri.toURL().openConnection();
             connection.setRequestMethod("GET");
-            connection.setConnectTimeout(5000); // Таймаут на подключение
-            connection.setReadTimeout(5000);    // Таймаут на чтение
+            connection.setRequestProperty("User-Agent", fakeConfig.getUserAgent());
+            connection.setRequestProperty("Referer", fakeConfig.getReferrer());
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
 
             // Отправляем запрос и получаем статус-код
             int statusCode = connection.getResponseCode();
@@ -59,6 +63,7 @@ public class HtmlLoader {
         } catch (Exception e) {
             log.error("Ошибка при получении HTTP статус-кода для URL: {}. Причина: {}", url, e.getMessage());
         }
-        return -1; // Возвращаем -1, если статус-код получить не удалось
+        return -1;
     }
+
 }
