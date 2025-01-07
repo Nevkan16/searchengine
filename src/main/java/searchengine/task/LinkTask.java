@@ -44,6 +44,7 @@ public class LinkTask extends RecursiveTask<Void> {
                 public boolean block() {
                     processTask();
                     done = true;
+                    siteCRUDService.updateSiteStatusToIndexed(getBaseUrl());
                     return true;
                 }
 
@@ -53,7 +54,7 @@ public class LinkTask extends RecursiveTask<Void> {
                 }
             });
         } catch (InterruptedException e) {
-            log.error("Task for URL {} was interrupted", baseUrl, e);
+            log.error("Task for URL {} was interrupted {}", baseUrl, e.getMessage());
         }
         return null;
     }

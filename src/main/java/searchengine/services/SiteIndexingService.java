@@ -55,7 +55,7 @@ public class SiteIndexingService {
 
                 waitForTasksCompletion(tasks);
 
-                completeIndexing(sitesUrls);
+                completeIndexing();
 
             } catch (Exception e) {
                 log.error("Error during indexing: " + e.getMessage());
@@ -118,12 +118,7 @@ public class SiteIndexingService {
         }
     }
 
-    private void completeIndexing(List<String> sitesUrls) {
-        sitesUrls.forEach(siteUrl -> {
-            siteCRUDService.updateSiteStatusToIndexed(siteUrl);
-            siteStopFlags.remove(siteUrl);
-        });
-
+    private void completeIndexing() {
         if (!manuallyStopped.get()) {
             log.info("Indexing completed automatically.");
         } else {
