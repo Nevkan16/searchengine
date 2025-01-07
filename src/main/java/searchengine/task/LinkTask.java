@@ -170,11 +170,6 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private String getBaseDomain() {
-        try {
-            return new URI(baseUrl).getHost();
-        } catch (Exception e) {
-            log.error("Invalid base URL: {}", baseUrl, e);
-            return "";
-        }
+        return HtmlLoader.getBaseUrl(baseUrl);
     }
 }

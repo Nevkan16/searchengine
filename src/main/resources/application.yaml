@@ -22,10 +22,10 @@ indexing-settings:
   sites:
 #    - url: https://www.lenta.ru
 #      name: Лента.ру
-#    - url: https://www.playback.ru
-#      name: PlayBack.Ru
-#    - url: https://mishka-knizhka.ru/
-#      name: Мишкины книжки
+    - url: https://www.playback.ru
+      name: PlayBack.Ru
+    - url: https://mishka-knizhka.ru/
+      name: Мишкины книжки
 #    - url: https://www.svetlovka.ru
 #      name: Svetlovka
     - url: https://dombulgakova.ru

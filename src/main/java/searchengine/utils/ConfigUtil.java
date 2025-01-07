@@ -10,20 +10,11 @@ import searchengine.config.SitesList;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.regex.Pattern;
 
 @Slf4j
 @RequiredArgsConstructor
 @Component
 public class ConfigUtil {
-
-    // Регулярное выражение для проверки общих URL
-    private static final Pattern URL_PATTERN = Pattern.compile(
-            "^(https?://)?(www\\.)?[a-zA-Z0-9-]+\\.[a-zA-Z]{2,}(:\\d+)?(/.*)?$");
-
-    // Регулярное выражение для проверки localhost
-    private static final Pattern LOCALHOST_PATTERN = Pattern.compile(
-            "^http://localhost(:\\d+)?(/.*)?$");
 
     private final SitesList sitesList;
 
@@ -102,23 +93,6 @@ public class ConfigUtil {
         }
     }
 
-    // Проверка url на валидность
-    private boolean isValidURL(String url) {
-        boolean isGeneralURL = URL_PATTERN.matcher(url).matches();
-        boolean isLocalhost = isLocalhostURL(url);
-
-        if (!isGeneralURL && !isLocalhost) {
-            log.info("URL имеет неверный формат: {}", url);
-        }
-
-        return isGeneralURL || isLocalhost;
-    }
-
-    private boolean isLocalhostURL(String url) {
-        return LOCALHOST_PATTERN.matcher(url).matches();
-    }
-
-
     // Получаем список форматированных url из конфиг файла без дубликатов
     public List<String> formattedUrlSites() {
         List<Site> notFormatted = getAvailableSites();
@@ -159,21 +133,7 @@ public class ConfigUtil {
     }
 
     private String getBaseUrl(String url) {
-        try {
-            URI uri = new URI(url);
-            return new URI(uri.getScheme(), uri.getHost(), null, null).toString();
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Некорректный URL: " + url, e);
-        }
-    }
-
-    private String getPath(String url) {
-        try {
-            return new URI(url).getPath();
-        } catch (Exception e) {
-            log.error("Ошибка при извлечении path из URL: {}", url, e);
-            return null;
-        }
+        return HtmlLoader.getBaseUrl(url);
     }
 
 }

@@ -9,30 +9,21 @@ import searchengine.config.FakeConfig;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 @Slf4j
 @Service
 public class HtmlLoader {
     private static final int TASK_TIMEOUT_SECONDS = 10;
-    private boolean useFakeConfigForHtml = true;
-    private boolean htmlMethodDetermined = false;
-    private boolean useFakeConfigForHttpCode = true;
-    private boolean httpCodeMethodDetermined = false;
+    private final ConcurrentHashMap<String, Boolean> domainMethodMap = new ConcurrentHashMap<>();
 
     public Document fetchHtmlDocument(String url, FakeConfig fakeConfig) {
         return determineMethod(
                 url,
                 fakeConfig,
-                htmlMethodDetermined,
-                useFakeConfigForHtml,
                 this::fetchWithFakeConfig,
-                this::fetchWithoutFakeConfig,
-                (result) -> {
-                    this.useFakeConfigForHtml = result;
-                    this.htmlMethodDetermined = true;
-                }
+                this::fetchWithoutFakeConfig
         );
     }
 
@@ -40,46 +31,53 @@ public class HtmlLoader {
         return determineMethod(
                 url,
                 fakeConfig,
-                httpCodeMethodDetermined,
-                useFakeConfigForHttpCode,
                 this::getStatusCodeWithFakeConfig,
-                this::getStatusCodeWithoutFakeConfig,
-                (result) -> {
-                    this.useFakeConfigForHttpCode = result;
-                    this.httpCodeMethodDetermined = true;
-                }
+                this::getStatusCodeWithoutFakeConfig
         );
     }
 
     private <T> T determineMethod(
             String url,
             FakeConfig fakeConfig,
-            boolean methodDetermined,
-            boolean useFakeConfig,
             BiFunction<String, FakeConfig, T> withFakeConfig,
-            BiFunction<String, FakeConfig, T> withoutFakeConfig,
-            Consumer<Boolean> methodSetter
+            BiFunction<String, FakeConfig, T> withoutFakeConfig
     ) {
-        if (methodDetermined) {
+        String baseUrl = getBaseUrl(url);
+
+        Boolean useFakeConfig = domainMethodMap.get(baseUrl);
+
+        if (useFakeConfig != null) {
             return useFakeConfig ? withFakeConfig.apply(url, fakeConfig) : withoutFakeConfig.apply(url, fakeConfig);
         }
 
+        // Пробуем метод с FakeConfig
         T result = withFakeConfig.apply(url, fakeConfig);
-        if (result != null) {
-            methodSetter.accept(true);
+        if (isSuccessful(result)) {
+            domainMethodMap.put(baseUrl, true);
             return result;
         }
 
+        // Пробуем метод без FakeConfig
         result = withoutFakeConfig.apply(url, fakeConfig);
-        if (result != null) {
-            methodSetter.accept(false);
+        if (isSuccessful(result)) {
+            domainMethodMap.put(baseUrl, false); // Запоминаем решение
         }
         return result;
     }
 
+    private boolean isSuccessful(Object result) {
+        if (result instanceof Document) {
+            return true;
+        } else if (result instanceof Integer) {
+            int code = (Integer) result;
+            return code >= 200 && code < 300; // Успешные HTTP-коды
+        }
+        return false;
+    }
+
     private Document fetchWithFakeConfig(String url, FakeConfig fakeConfig) {
         try {
-            log.info("Загрузка URL через FakeConfig");
+            log.info("Загрузка URL через FakeConfig: {}", url);
             Thread.sleep(1000); // Задержка для предотвращения блокировки
             return Jsoup.connect(url)
                     .userAgent(fakeConfig.getUserAgent())
@@ -97,7 +95,7 @@ public class HtmlLoader {
 
     private Document fetchWithoutFakeConfig(String url, FakeConfig fakeConfig) {
         try {
-            log.info("Загрузка URL без FakeConfig");
+            log.info("Загрузка URL без FakeConfig: {}", url);
             return Jsoup.connect(url)
                     .timeout(TASK_TIMEOUT_SECONDS * 1000)
                     .get();
@@ -129,16 +127,26 @@ public class HtmlLoader {
             }
 
             int statusCode = connection.getResponseCode();
-            log.info("HTTP-код {} через {}: {}", url, useFakeConfig ? "FakeConfig" : "без FakeConfig", statusCode);
+            log.info("HTTP-код {} {}: {}", url, useFakeConfig ? "FakeConfig" : "без FakeConfig", statusCode);
             connection.disconnect();
             return statusCode;
         } catch (IOException e) {
-            log.warn("Ошибка HTTP-кода {} через {}: Причина: {}",
+            log.warn("Ошибка HTTP-кода {} {}: Причина: {}",
                     url, useFakeConfig ? "FakeConfig" : "без FakeConfig", e.getMessage());
         } catch (Exception e) {
-            log.error("Ошибка HTTP-кода {} через {}: Причина: {}",
+            log.error("Ошибка HTTP-кода {} {}: Причина: {}",
                     url, useFakeConfig ? "FakeConfig" : "без FakeConfig", e.getMessage());
         }
         return -1;
+    }
+
+    public static String getBaseUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            return uri.getHost();
+        } catch (Exception e) {
+            log.error("Ошибка извлечения базового URL из {}: {}", url, e.getMessage());
+            return url;
+        }
     }
 }
