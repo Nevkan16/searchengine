@@ -130,10 +130,9 @@ public class SiteCRUDService {
         }
     }
 
-    // Обновление информации о сайте
     @Transactional
     public void updateSite(Long siteId, Site site) {
-        System.out.println("Обновление записи о сайте: " + site.getUrl() + " с id: " + siteId);
+        log.info("Обновление записи о сайте: {}, с id {}", site.getUrl(), siteId);
         SiteEntity siteEntity = siteRepository.findById(siteId)
                 .orElseThrow(() -> new IllegalArgumentException("Сайт не найден для обновления"));
         populateSiteEntity(siteEntity, site);
@@ -216,7 +215,7 @@ public class SiteCRUDService {
 
     @Transactional
     public void deleteAllSites() {
-        System.out.println("Удаление всех сайтов из базы данных...");
+       log.info("Удаление всех сайтов из базы данных...");
 
         pageRepository.deleteAll();
         siteRepository.deleteAll();

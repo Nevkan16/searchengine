@@ -87,14 +87,19 @@ public class SiteDataExecutor {
 
     private void deleteSites(List<SiteEntity> sitesToDelete) {
         log.info("Начало удаления сайтов...");
+
+        if (sitesToDelete == null || sitesToDelete.isEmpty()) {
+            log.warn("Список сайтов для удаления пуст или null.");
+            return;
+        }
+
         try {
             for (SiteEntity site : sitesToDelete) {
                 log.info("Удаление сайта: {}", site.getUrl());
             }
             siteRepository.deleteAll(sitesToDelete);
             log.info("Удаление завершено. Всего удалено сайтов: {}", sitesToDelete.size());
-        } catch (Exception e) {
-            log.error("Ошибка при удалении сайтов", e);
+        } catch (Exception ignored) {
         }
     }
 
