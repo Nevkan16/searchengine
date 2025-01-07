@@ -60,29 +60,13 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private void processTask() {
-        AtomicBoolean stopFlag = SiteIndexingService.getStopFlagForSite(getBaseUrl());
-        if (stopFlag == null || stopFlag.get()) {
+        if (SiteIndexingService.isStopProcessing()) {
             return;
         }
-
-        int currentDepth = calculateDepth(baseUrl);
-        if (currentDepth > maxDepth) {
-            log.info("Stopping task at depth {}: Reached maxDepth. URL: {}", currentDepth, baseUrl);
-            return;
-        }
-
         LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
-
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
-            if (!stopFlag.get()) {
-                if (subTasks.isEmpty()) {
-                    log.info("No more links to process at this depth: {}", currentDepth);
-                    stopFlag.set(true);
-                    return;
-                }
-                invokeAll(subTasks);
-            }
+            invokeAll(subTasks);
         } catch (Exception ignored) {
         }
     }
@@ -192,13 +176,5 @@ public class LinkTask extends RecursiveTask<Void> {
             log.error("Invalid base URL: {}", baseUrl, e);
             return "";
         }
-    }
-
-    public static void resetStopFlag() {
-        stopProcessing.set(false);
-    }
-
-    public static void stopProcessing() {
-        stopProcessing.set(true);
     }
 }

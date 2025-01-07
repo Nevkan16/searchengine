@@ -28,6 +28,7 @@ public class SiteIndexingService {
     private final SiteCRUDService siteCRUDService;
     private final PageProcessor pageProcessor;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
+    private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
     private final int maxDepth = 1;
     private static final int TASK_TIMEOUT_SECONDS = 10;
 
@@ -40,8 +41,8 @@ public class SiteIndexingService {
 
         isProcessing.set(true);
         manuallyStopped.set(false);
-        LinkTask.stopProcessing();
-        LinkTask.resetStopFlag();
+        stopAllProcessing();
+        resetStopProcessing();
 
         setupForkJoinPool();
 
@@ -123,7 +124,7 @@ public class SiteIndexingService {
         }
 
         if (allSitesStopped()) {
-            LinkTask.stopProcessing(); // Установка глобального флага
+           stopAllProcessing();
         }
     }
 
@@ -135,7 +136,7 @@ public class SiteIndexingService {
 
         if (manuallyStopped.compareAndSet(false, true)) {
             log.info("Stopping processing manually...");
-            LinkTask.stopProcessing();
+            stopAllProcessing();
 
             List<LinkTask> tasks = new ArrayList<>();
 
@@ -154,6 +155,18 @@ public class SiteIndexingService {
 
             isProcessing.set(false);
         }
+    }
+
+    public void stopAllProcessing() {
+        stopProcessing.set(true);
+    }
+
+    public void resetStopProcessing() {
+        stopProcessing.set(false);
+    }
+
+    public static boolean isStopProcessing() {
+        return stopProcessing.get();
     }
 
     public boolean isIndexing() {
