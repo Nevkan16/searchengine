@@ -147,4 +147,13 @@ public class HtmlLoader {
             return url;
         }
     }
+
+    public static String getPath(String path) {
+        try {
+            return new URI(path).getPath();
+        } catch (Exception e) {
+            log.error("Invalid path: {} {}", path, e.getMessage());
+            return "";
+        }
+    }
 }

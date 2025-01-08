@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.constants.ErrorMessages;
+import searchengine.repository.PageRepository;
 import searchengine.task.LinkProcessor;
 import searchengine.utils.ConfigUtil;
+import searchengine.utils.HtmlLoader;
 
 @Slf4j
 @Service
@@ -16,6 +18,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final SiteIndexingService siteIndexingService;
     private final PageProcessor pageProcessor;
     private final ConfigUtil configUtil;
+    private final PageRepository pageRepository;
 
     @Override
     public boolean startIndexing() {
@@ -61,8 +64,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             pageProcessor.processPage(url);
-
-            return true;
+            return pageRepository.findByPath(HtmlLoader.getPath(url)).isPresent();
         } catch (Exception e) {
             log.info("Ошибка при индексации страницы {}: {}", url, e.getMessage());
             return false;
