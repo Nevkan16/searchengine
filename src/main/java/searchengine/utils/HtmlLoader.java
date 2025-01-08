@@ -68,7 +68,7 @@ public class HtmlLoader {
             return true;
         } else if (result instanceof Integer) {
             int code = (Integer) result;
-            return code >= 200 && code < 300; // Успешные HTTP-коды
+            return code >= 200 && code < 300;
         }
         return false;
     }
@@ -76,14 +76,14 @@ public class HtmlLoader {
     private Document fetchWithFakeConfig(String url, FakeConfig fakeConfig) {
         try {
             log.info("Загрузка URL через FakeConfig: {}", url);
-            Thread.sleep(1000); // Задержка для предотвращения блокировки
+            Thread.sleep(1000);
             return Jsoup.connect(url)
                     .userAgent(fakeConfig.getUserAgent())
                     .referrer(fakeConfig.getReferrer())
                     .timeout(TASK_TIMEOUT_SECONDS * 1000)
                     .get();
         } catch (IOException e) {
-            log.warn("Ошибка загрузки URL через FakeConfig: {}. Причина: {}", url, e.getMessage());
+            log.warn("Ошибка загрузки URL через FakeConfig: {}", url);
         } catch (InterruptedException e) {
             log.error("Операция прервана: {}", e.getMessage());
             Thread.currentThread().interrupt();
@@ -98,7 +98,7 @@ public class HtmlLoader {
                     .timeout(TASK_TIMEOUT_SECONDS * 1000)
                     .get();
         } catch (IOException e) {
-            log.warn("Ошибка загрузки URL без FakeConfig: {}. Причина: {}", url, e.getMessage());
+            log.warn("Ошибка загрузки URL без FakeConfig: {}.", url);
         }
         return null;
     }

@@ -103,7 +103,7 @@ public class SiteCRUDService {
 
 
     // В классе SiteIndexingService
-    public void updateSiteStatusToIndexed(String siteUrl) {
+    public void updateSiteStatusAfterIndexing(String siteUrl) {
         SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
 

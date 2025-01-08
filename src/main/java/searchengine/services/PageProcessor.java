@@ -71,7 +71,7 @@ public class PageProcessor {
                 return;
             }
             saveAndProcessPage(url, document, siteEntity);
-            siteCRUDService.updateSiteStatusToIndexed(getBaseUrl(url));
+            siteCRUDService.updateSiteStatusAfterIndexing(getBaseUrl(url));
             log.info("Индексация страницы {} завершена успешно.", url);
         } catch (Exception e) {
             log.error("Ошибка при обработке страницы: {}", url, e);

@@ -81,6 +81,9 @@ public class SiteIndexingService {
             try {
                 siteStopFlags.put(siteUrl, new AtomicBoolean(false));
                 Document doc = htmlLoader.fetchHtmlDocument(siteUrl, fakeConfig);
+                if (doc == null) {
+                    siteCRUDService.updateSiteStatusAfterIndexing(siteUrl);
+                }
 
                 if (doc != null) {
                     LinkTask linkTask = new LinkTask(

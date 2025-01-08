@@ -44,7 +44,7 @@ public class LinkTask extends RecursiveTask<Void> {
                 public boolean block() {
                     processTask();
                     done = true;
-                    siteCRUDService.updateSiteStatusToIndexed(getBaseUrl());
+                    siteCRUDService.updateSiteStatusAfterIndexing(getBaseUrl());
                     return true;
                 }
 
