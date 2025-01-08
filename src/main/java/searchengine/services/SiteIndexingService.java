@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
+import searchengine.constants.ErrorMessages;
 import searchengine.task.LinkTask;
 import searchengine.utils.HtmlLoader;
 
@@ -37,7 +38,7 @@ public class SiteIndexingService {
     public void processSites() {
         log.info("Запуск индексации страниц сайта..");
         if (isProcessing.get()) {
-            log.info("Processing is already running!");
+            log.info(ErrorMessages.INDEXING_ALREADY_RUNNING);
             return;
         }
 
@@ -58,7 +59,7 @@ public class SiteIndexingService {
                 completeIndexing();
 
             } catch (Exception e) {
-                log.error("Error during indexing: " + e.getMessage());
+                log.error(ErrorMessages.INDEXING_ERROR + e.getMessage());
                 e.printStackTrace();
             } finally {
                 isProcessing.set(false);
@@ -87,10 +88,10 @@ public class SiteIndexingService {
                     tasks.add(linkTask);
                     forkJoinPool.execute(linkTask);
                 } else {
-                    log.info("Не удалось загрузить HTML-документ для сайта: {}", siteUrl);
+                    log.info(ErrorMessages.FAILED_TO_LOAD_HTML + siteUrl);
                 }
             } catch (Exception e) {
-                log.info("Ошибка при обработке сайта: {}. {}", sitesUrls, e.getMessage());
+                log.info(ErrorMessages.ERROR_PROCESS_SITE + sitesUrls + e.getMessage());
             }
         }
         return tasks;
@@ -120,9 +121,9 @@ public class SiteIndexingService {
 
     private void completeIndexing() {
         if (!manuallyStopped.get()) {
-            log.info("Indexing completed automatically.");
+            log.info("Индексация завершена автоматически.");
         } else {
-            log.info("Indexing stopped by user.");
+            log.info("Индексация остановлена пользователем.");
         }
 
         if (allSitesStopped()) {
@@ -132,12 +133,12 @@ public class SiteIndexingService {
 
     public synchronized void stopProcessing() {
         if (!isProcessing.get()) {
-            log.info("Процесс не запущен!");
+            log.info(ErrorMessages.PROCESS_NOT_RUNNING);
             return;
         }
 
         if (manuallyStopped.compareAndSet(false, true)) {
-            log.info("Stopping processing manually...");
+            log.info("Остановка индексации вручную...");
             stopAllProcessing();
 
             List<LinkTask> tasks = new ArrayList<>();

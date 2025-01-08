@@ -11,9 +11,7 @@ import searchengine.model.SiteEntity;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.PageRepository;
 
-import java.net.URI;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,21 +31,6 @@ public class PageCRUDService {
         pageEntity.setCode(code);
         pageEntity.setContent(content);
         return pageEntity;
-    }
-
-    @Transactional
-    public void create(SiteEntity site, String path, int code, String content) {
-        try {
-            PageEntity pageEntity = createPageEntity(site, path, code, content);
-            site.setStatusTime(LocalDateTime.now());
-            log.info("Текущее время: {}", site.getStatusTime());
-
-            // Сохраняем страницу
-            pageRepository.save(pageEntity);
-            log.info("Страница успешно создана по пути: {}", path);
-        } catch (Exception e) {
-            log.error("Ошибка при сохранении страницы: {}", e.getMessage());
-        }
     }
 
     @Transactional
@@ -81,36 +64,6 @@ public class PageCRUDService {
         return pageRepository.findByPath(path);
     }
 
-    public List<PageEntity> getAllPages() {
-        return pageRepository.findAll();
-    }
-
-    @Transactional
-    public void deletePageByPath(String path) {
-        try {
-            pageRepository.findByPath(path).ifPresent(pageRepository::delete);
-        } catch (Exception e) {
-            log.error("Ошибка при удалении страницы по пути: {}", path, e);
-        }
-    }
-
-    @Transactional
-    public void deletePageLemmaByUrl(String url) {
-        try {
-            URI uri = new URI(url);
-            String path = uri.getPath();
-
-            if (path == null || path.isEmpty()) {
-                log.warn("Некорректный URL: {}", url);
-                return;
-            }
-
-            deletePageLemmaByPath(path);
-        } catch (Exception e) {
-            log.error("Ошибка при обработке URL: {}", url, e);
-        }
-    }
-
 
     @Transactional
     public void deletePageLemmaByPath(String path) {
@@ -142,49 +95,4 @@ public class PageCRUDService {
             }
         }
     }
-
-    public List<PageEntity> getPageBySiteId(SiteEntity siteEntity) {
-        if (siteEntity == null) {
-            log.warn("SiteEntity равен null.");
-            return Collections.emptyList();
-        }
-        if (siteEntity.getId() == null) {
-            log.warn("ID SiteEntity равен null.");
-            return Collections.emptyList();
-        }
-
-        List<PageEntity> pages = pageRepository.findBySiteId(siteEntity.getId());
-        if (pages.isEmpty()) {
-            log.info("Для сайта с ID {} страницы не найдены.", siteEntity.getId());
-        }
-        return pages;
-    }
-
-
-    @Transactional
-    public void deleteAllPages() {
-        try {
-            pageRepository.deleteAll();
-        } catch (Exception e) {
-            log.error("Ошибка удаления всех страниц", e);
-        }
-    }
-
-    @Transactional
-    public void updatePageContent(String path, String newContent) {
-        try {
-            pageRepository.findByPath(path).ifPresent(page -> {
-                page.setContent(newContent);
-                pageRepository.save(page);
-                log.info("Обновлено содержимое страницы: {}", path);
-            });
-        } catch (Exception e) {
-            log.error("Ошибка при обновлении содержимого страницы: {}", path, e);
-        }
-    }
-
-    public void deletePageIfExists(String url) {
-        pageRepository.findByPath(url).ifPresent(pageRepository::delete);
-    }
-
 }

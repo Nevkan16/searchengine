@@ -8,8 +8,6 @@ import searchengine.model.LemmaEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.LemmaRepository;
 
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -40,15 +38,6 @@ public class LemmaCRUDService {
         } else {
             lemmaRepository.delete(lemma);
         }
-    }
-
-    public Optional<LemmaEntity> findLemma(String lemmaText, SiteEntity site) {
-        return lemmaRepository.findByLemmaAndSite(lemmaText, site);
-    }
-
-    @Transactional
-    public void deleteLemma(LemmaEntity lemma) {
-        lemmaRepository.delete(lemma);
     }
 
     private LemmaEntity createLemmaEntity(String lemmaText, SiteEntity site) {

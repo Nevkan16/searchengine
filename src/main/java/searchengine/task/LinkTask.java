@@ -82,7 +82,7 @@ public class LinkTask extends RecursiveTask<Void> {
         try {
             siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
         } catch (Exception e) {
-            log.error("Failed to retrieve SiteEntity for URL: {}", getBaseUrl(), e);
+            log.error("Failed to get SiteEntity for URL: {} {}", getBaseUrl(), e.getMessage());
             return subTasks;
         }
 
@@ -120,7 +120,7 @@ public class LinkTask extends RecursiveTask<Void> {
             subTasks.add(new LinkTask(childDoc, linkHref, depth, maxDepth, fakeConfig, siteCRUDService, pageProcessor));
 
         } catch (Exception e) {
-            log.error("Unexpected error while processing URL: {}", linkHref, e);
+            log.error("Unexpected error while processing URL: {} {}", linkHref, e.getMessage());
             siteCRUDService.updateSiteError(siteEntity, ErrorMessages.UNKNOWN_ERROR);
         }
     }

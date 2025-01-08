@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import searchengine.constants.ErrorMessages;
 import searchengine.task.LinkProcessor;
 import searchengine.utils.ConfigUtil;
 
@@ -19,7 +20,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public boolean startIndexing() {
         if (siteIndexingService.isIndexing()) {
-            log.info("Индексация уже запущена.");
+            log.info(ErrorMessages.INDEXING_ALREADY_RUNNING);
             return false;
         }
 
@@ -30,7 +31,7 @@ public class IndexingServiceImpl implements IndexingService {
             siteIndexingService.processSites();
             return true;
         } catch (Exception e) {
-            log.error("Ошибка при запуске индексации: {}", e.getMessage());
+            log.error(ErrorMessages.ERROR_START_INDEXING + e.getMessage());
             return false;
         }
     }
@@ -38,7 +39,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public boolean stopIndexing() {
         if (!siteIndexingService.isIndexing()) {
-            log.info("Индексация не запущена.");
+            log.info(ErrorMessages.INDEXING_NOT_RUNNING);
             return false;
         }
 

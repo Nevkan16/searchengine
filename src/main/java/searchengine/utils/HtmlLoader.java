@@ -50,14 +50,12 @@ public class HtmlLoader {
             return useFakeConfig ? withFakeConfig.apply(url, fakeConfig) : withoutFakeConfig.apply(url, fakeConfig);
         }
 
-        // Пробуем метод с FakeConfig
         T result = withFakeConfig.apply(url, fakeConfig);
         if (isSuccessful(result)) {
             domainMethodMap.put(baseUrl, true);
             return result;
         }
 
-        // Пробуем метод без FakeConfig
         result = withoutFakeConfig.apply(url, fakeConfig);
         if (isSuccessful(result)) {
             domainMethodMap.put(baseUrl, false); // Запоминаем решение

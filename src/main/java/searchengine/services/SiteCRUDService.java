@@ -15,17 +15,15 @@ import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.utils.ConfigUtil;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 @Slf4j
 @RequiredArgsConstructor
 @Service // сервисный слой, регистрирует класс как bean (объект управляемый контейнером Spring)
 public class SiteCRUDService {
-
-    @PersistenceContext // внедрение Entity Manager в компоненты приложения
-    private EntityManager entityManager;
 
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
@@ -35,28 +33,6 @@ public class SiteCRUDService {
     private final ConfigUtil configUtil;
 
 
-    public List<Site> getAllSites() {
-        List<Site> allSites = sitesList.getSites();
-        if (allSites == null || allSites.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        Set<String> uniqueUrls = new HashSet<>();
-        List<Site> validSites = new ArrayList<>();
-
-        for (Site site : allSites) {
-            if (site != null && site.getUrl() != null && !site.getUrl().isEmpty() && site.getName() != null) {
-                String formattedUrl = configUtil.formatURL(site.getUrl());
-                if (uniqueUrls.add(formattedUrl)) {
-                    validSites.add(site);
-                }
-            }
-        }
-        return validSites;
-    }
-
-
-    // Создание нового сайта
     @Transactional
     public void createSite(Site site) {
         log.info("Создание новой записи о сайте: " + site.getUrl());
@@ -95,20 +71,6 @@ public class SiteCRUDService {
     }
 
     @Transactional
-    public void updateLastError(SiteEntity siteEntity, String errorMessage) {
-        if (siteEntity == null) {
-            return;
-        }
-        siteEntity.setLastError(errorMessage);
-        siteEntity.setStatusTime(LocalDateTime.now());
-        try {
-            siteRepository.save(siteEntity);
-        } catch (Exception e) {
-            log.info("Ошибка при обновлении ошибки для сайта: {}", siteEntity.getUrl());
-        }
-    }
-
-    @Transactional
     public void updateSiteError(SiteEntity siteEntity, String errorMessage) {
         if (siteEntity == null) {
             return;
@@ -137,21 +99,6 @@ public class SiteCRUDService {
                 .orElseThrow(() -> new IllegalArgumentException("Сайт не найден для обновления"));
         populateSiteEntity(siteEntity, site);
         siteRepository.save(siteEntity);
-    }
-
-    // Получение сайта по ID
-    public SiteEntity getSiteById(Long siteId) {
-        return siteRepository.findById(siteId)
-                .orElseThrow(() -> new IllegalArgumentException("Site not found"));
-    }
-
-    // Удаление сайта по ID
-    @Transactional
-    public void deleteSite(Long siteId) {
-        SiteEntity siteEntity = siteRepository.findById(siteId)
-                .orElseThrow(() -> new IllegalArgumentException("Сайт не найден для удаления"));
-        siteRepository.delete(siteEntity);
-       log.info("Сайт удалён: " + siteEntity.getUrl());
     }
 
 
@@ -225,25 +172,6 @@ public class SiteCRUDService {
         log.info("Все сайты удалены из базы данных.");
     }
 
-    @Transactional
-    public void deleteSiteData() {
-        log.info("Удаление старых данных...");
-        List<Site> allSites = getAllSites(); // Получаем проверенный список сайтов
-        for (Site siteConfig : allSites) {
-            log.info("Проверяем сайт: " + siteConfig.getUrl());
-            SiteEntity siteEntity = siteRepository.findByUrl(siteConfig.getUrl()).orElseThrow();
-
-            log.info("Найден сайт в БД: " + siteConfig.getUrl() + ". Удаляем данные.");
-            // Удаление связанных данных
-            pageRepository.deleteBySite(siteEntity);
-            log.info("Связанные страницы удалены для сайта: " + siteConfig.getUrl());
-
-            siteRepository.delete(siteEntity);
-            log.info("Сайт удален из БД: " + siteConfig.getUrl());
-
-        }
-    }
-
     public List<String> getSitesForIndexing() {
         List<SiteEntity> indexingSites = siteRepository.findByStatus(SiteEntity.Status.INDEXING);
         if (indexingSites.isEmpty()) {
@@ -258,15 +186,6 @@ public class SiteCRUDService {
         return sitesForIndexing;
     }
 
-    public void handleManualStop() {
-        for (SiteEntity siteEntity : siteRepository.findAll()) {
-            siteEntity.setStatus(SiteEntity.Status.FAILED);
-            siteEntity.setStatusTime(LocalDateTime.now());
-            siteEntity.setLastError("Индексация остановлена пользователем");
-            siteRepository.save(siteEntity);
-        }
-    }
-
     public SiteEntity getSiteByUrl(String url) {
         return siteRepository.findByUrl(url)
                 .orElse(null);
@@ -276,43 +195,6 @@ public class SiteCRUDService {
         long count = siteRepository.count();
         if (count == 0) {
             log.info("База данных пуста.");
-        }
-    }
-
-//    @Async("threadPoolTaskExecutor")
-    @Transactional
-    public void deleteSiteAsync(String siteUrl) {
-        try {
-            log.info("Асинхронное удаление сайта: {}", siteUrl);
-            SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
-                    .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
-
-            // Удаление связанных данных
-            pageRepository.deleteBySite(siteEntity);
-            log.info("Связанные страницы удалены для сайта: {}", siteUrl);
-
-            siteRepository.delete(siteEntity);
-            log.info("Сайт удалён: {}", siteUrl);
-        } catch (Exception e) {
-            log.error("Ошибка при асинхронном удалении сайта: {}", siteUrl, e);
-        }
-    }
-
-    @Transactional
-    public void deleteSiteWithTransaction(String siteUrl) {
-        try {
-            log.info("Удаление сайта с транзакцией: {}", siteUrl);
-            SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
-                    .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
-
-            // Удаление связанных данных
-            pageRepository.deleteBySite(siteEntity);
-            log.info("Связанные страницы удалены для сайта: {}", siteUrl);
-
-            siteRepository.delete(siteEntity);
-            log.info("Сайт удалён: {}", siteUrl);
-        } catch (Exception e) {
-            log.error("Ошибка при удалении сайта: {}", siteUrl, e);
         }
     }
 }

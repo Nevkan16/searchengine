@@ -10,7 +10,6 @@ import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 
 import javax.transaction.Transactional;
-import java.net.URI;
 import java.util.List;
 
 @Slf4j

@@ -70,59 +70,6 @@ public class Lemmatizer {
         return lemmasCount;
     }
 
-    public String replaceWordsWithLemmas(String text) {
-        text = preprocessText(text);
-
-        StringBuilder result = new StringBuilder();
-        String[] words = text.split("\\s+");
-
-        for (String word : words) {
-            if (word.isEmpty()) {
-                continue;
-            }
-
-            List<String> lemmas = getLemmasForWord(word);
-            if (!lemmas.isEmpty()) {
-                result.append(lemmas.get(0)).append(" "); // Берем первую лемму
-            } else {
-                result.append(word).append(" "); // Если лемма не найдена, оставляем оригинальное слово
-            }
-        }
-
-        return result.toString().trim();
-    }
-
-    public HashMap<String, Integer> getLemmasWithCounts(String text) {
-        HashMap<String, Integer> lemmasCount = new HashMap<>();
-
-        // Предобработка текста
-        text = preprocessText(text);
-
-        // Разделение текста на слова
-        String[] words = text.split("\\s+");
-
-        for (String word : words) {
-            if (word.isEmpty()) {
-                continue;
-            }
-
-            // Получаем леммы для текущего слова
-            List<String> lemmas = getLemmasForWord(word);
-
-            // Добавляем их в карту с учетом количества
-            for (String lemma : lemmas) {
-                lemmasCount.put(lemma, lemmasCount.getOrDefault(lemma, 0) + 1);
-            }
-        }
-        return lemmasCount;
-    }
-
-    public void printLemmasWithCounts(HashMap<String, Integer> lemmasCount) {
-        for (Map.Entry<String, Integer> entry : lemmasCount.entrySet()) {
-            System.out.println(entry.getKey() + " - " + entry.getValue());
-        }
-    }
-
     public String cleanHtml(String html) {
         return Jsoup.parse(html).text();
     }
@@ -140,5 +87,4 @@ public class Lemmatizer {
         }
         return uniqueLemmas;
     }
-
 }

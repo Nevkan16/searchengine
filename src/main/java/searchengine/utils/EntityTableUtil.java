@@ -60,12 +60,4 @@ public class EntityTableUtil {
         tableNames.forEach(this::resetAutoIncrement);
         log.info("Сброс автоинкремента завершён.");
     }
-
-
-    public void print() {
-        List<String> printedTableName = getEntityTableNames();
-        for (String table : printedTableName) {
-            System.out.println(table);
-        }
-    }
 }

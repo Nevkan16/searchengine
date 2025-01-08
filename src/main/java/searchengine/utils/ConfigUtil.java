@@ -69,7 +69,6 @@ public class ConfigUtil {
         return null;
     }
 
-
     public String formatURL(String url) {
         if (url == null || url.isEmpty()) {
             log.info("URL передан пустым");
@@ -77,12 +76,10 @@ public class ConfigUtil {
         }
 
         try {
-            // Добавляем схему, если её нет
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 url = "https://" + url;
             }
 
-            // Создаем объект URI, который автоматически обработает URL
             URI uri = new URI(url);
 
             // Составляем новый URL без завершающего "/"
@@ -135,5 +132,4 @@ public class ConfigUtil {
     private String getBaseUrl(String url) {
         return HtmlLoader.getBaseUrl(url);
     }
-
 }
