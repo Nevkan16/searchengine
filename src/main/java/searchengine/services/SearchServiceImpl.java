@@ -34,6 +34,7 @@ public class SearchServiceImpl implements SearchService {
     private Set<PageEntity> currentMatchingPages;
     private Map<PageEntity, Float> currentPageRelevanceMap;
     private Set<String> uniqueLemmas;
+    private final Map<String, SearchResult> snippetCache = new HashMap<>();
     private float absoluteRelevance;
     private float maxRelevance;
     private SiteEntity currentSiteEntity;
@@ -282,6 +283,12 @@ public class SearchServiceImpl implements SearchService {
 
     // Создает сниппет на основе контента и лемм.
     private String createSnippet(String content, Set<String> lemmas) {
+        String cacheKey = content.hashCode() + "_" + lemmas.hashCode();
+
+        if (snippetCache.containsKey(cacheKey)) {
+            return snippetCache.get(cacheKey).getSnippet();
+        }
+
         this.lemmas = lemmas;
         String cleanedText = lemmatizer.cleanHtml(content);
         matches = findMatches(cleanedText);
@@ -297,6 +304,7 @@ public class SearchServiceImpl implements SearchService {
         if (lemmas.size() > 2 && lemmasInSnippet.size() < 2) {
             snippet = generateSnippet(true);
         }
+
         return snippet.trim();
     }
 
@@ -312,18 +320,24 @@ public class SearchServiceImpl implements SearchService {
 
     // Преобразует страницу в результат поиска.
     private SearchResult mapToSearchResult(PageEntity page) {
+        String cacheKey = page.getContent().hashCode() + "_" + uniqueLemmas.hashCode();
+
+        if (snippetCache.containsKey(cacheKey)) {
+            return snippetCache.get(cacheKey);
+        }
+
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
         String snippet = createSnippet(page.getContent(), uniqueLemmas);
+
         log.info("Page '{}', Max relevance '{}',  Absolute relevance '{}', Relative relevance '{}'",
                 page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);
 
         String sizeFont = "<h3>%s</h3>";
-
         String formattedTitle = String.format(sizeFont, title);
         String formattedSnippet = String.format(sizeFont, snippet);
 
-        return SearchResult.builder()
+        SearchResult result = SearchResult.builder()
                 .site(page.getSite().getUrl())
                 .siteName(page.getSite().getName())
                 .uri(page.getPath())
@@ -331,6 +345,10 @@ public class SearchServiceImpl implements SearchService {
                 .snippet(formattedSnippet)
                 .relevance(relativeRelevance)
                 .build();
+
+        snippetCache.put(cacheKey, result);
+
+        return result;
     }
 
     // Генерирует ответ для поиска.
