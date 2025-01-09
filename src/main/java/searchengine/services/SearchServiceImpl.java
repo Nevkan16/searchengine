@@ -60,7 +60,7 @@ public class SearchServiceImpl implements SearchService {
                 return createEmptyResponse("No valid lemmas found");
             }
 
-            this.currentSiteEntity = validateSite(site);
+            this.currentSiteEntity = siteRepository.findByUrl(site).orElse(null);
             if (site != null && currentSiteEntity == null) {
                 return createEmptyResponse("Site not found");
             }
@@ -87,14 +87,6 @@ public class SearchServiceImpl implements SearchService {
     // Извлекает леммы из строки запроса.
     private Set<String> extractLemmas() {
         return lemmatizer.extractLemmasFromQuery(currentQuery);
-    }
-
-    // Проверяет наличие сайта.
-    private SiteEntity validateSite(String site) {
-        if (site == null) {
-            return null;
-        }
-        return siteRepository.findByUrl(site).orElse(null);
     }
 
     // Подсчитывает количество страниц для заданного сайта.
@@ -160,12 +152,8 @@ public class SearchServiceImpl implements SearchService {
 
     // Получает страницы для конкретной леммы.
     private Set<PageEntity> getPagesForLemma(LemmaEntity lemmaEntity) {
-        Set<PageEntity> pages = new HashSet<>();
-        for (IndexEntity index : lemmaEntity.getIndexes()) {
-            PageEntity page = index.getPage();
-            pages.add(page);
-        }
-        return pages;
+        List<PageEntity> pagesList = indexRepository.findPagesByLemma(lemmaEntity);
+        return new HashSet<>(pagesList);
     }
 
     // Фильтрует страницы по сайту.
@@ -177,7 +165,6 @@ public class SearchServiceImpl implements SearchService {
                 .filter(pageEntity -> pageEntity.getSite().equals(siteEntity))
                 .collect(Collectors.toSet());
     }
-
 
     // Находит страницы, соответствующие леммам.
     private Set<PageEntity> findMatchingPages(List<LemmaEntity> lemmaEntities, SiteEntity siteEntity) {
@@ -375,7 +362,7 @@ public class SearchServiceImpl implements SearchService {
         return new SearchResponse(true, totalResults, results, currentPage, totalPages, null);
     }
 
-        // Получает сущности лемм из репозитория.
+    // Получает сущности лемм из репозитория.
     private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
         return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
     }
@@ -411,10 +398,8 @@ public class SearchServiceImpl implements SearchService {
     }
 
     // Получает рейтинг для леммы на странице.
-    private float getRankForLemmaAndPage(LemmaEntity lemma, PageEntity page) {
-        return indexRepository.findByPageAndLemma(page, lemma)
-                .map(IndexEntity::getRank)
-                .orElse(0f);
+    private float getRankForLemmaAndPage(PageEntity page, LemmaEntity lemma) {
+        return indexRepository.findRankByPageAndLemma(page, lemma).orElse(0f);
     }
 
     // Вычисляет абсолютную релевантность страниц.
@@ -427,7 +412,7 @@ public class SearchServiceImpl implements SearchService {
             Set<LemmaEntity> lemmasOnPage = getLemmasForPage(page);
 
             for (LemmaEntity lemmaEntity : lemmasOnPage) {
-                totalRank += getRankForLemmaAndPage(lemmaEntity, page);
+                totalRank += getRankForLemmaAndPage(page, lemmaEntity);
             }
             pageRelevanceMap.put(page, totalRank);
         }
@@ -451,4 +436,3 @@ public class SearchServiceImpl implements SearchService {
         return generateSearchResponse(uniqueLemmas);
     }
 }
-
