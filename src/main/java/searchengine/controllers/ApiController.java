@@ -22,7 +22,6 @@ public class ApiController {
     private final SiteCRUDService siteCRUDService;
     private final IndexingServiceImpl indexingService;
     private final SiteCRUDService siteDataService;
-    private final TestMethod testMethod;
     private final SearchService searchService;
     private final SiteDataExecutor siteDataExecutor;
     private final EntityTableUtil entityTableService;
@@ -92,6 +91,12 @@ public class ApiController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(new ApiResponse(false, "Метод не выполнен"));
         }
+    }
+
+    @GetMapping("/example")
+    public ResponseEntity<ApiResponse> example(@RequestParam(value = "limit", defaultValue = "20") int limit) {
+        log.info(String.valueOf(limit));
+       return ResponseEntity.ok(goodResponse);
     }
 
     @GetMapping("/search")

@@ -35,6 +35,7 @@ public class SearchServiceImpl implements SearchService {
     private Map<PageEntity, Float> currentPageRelevanceMap;
     private Set<String> uniqueLemmas;
     private final Map<String, SearchResult> snippetCache = new HashMap<>();
+    private final Set<String> uniqueSnippets = new HashSet<>();
     private float absoluteRelevance;
     private float maxRelevance;
     private SiteEntity currentSiteEntity;
@@ -268,7 +269,6 @@ public class SearchServiceImpl implements SearchService {
         return builder.toString();
     }
 
-    // Создает сниппет на основе контента и лемм.
     private String createSnippet(String content, Set<String> lemmas) {
         String cacheKey = content.hashCode() + "_" + lemmas.hashCode();
 
@@ -290,6 +290,12 @@ public class SearchServiceImpl implements SearchService {
 
         if (lemmas.size() > 2 && lemmasInSnippet.size() < 2) {
             snippet = generateSnippet(true);
+        }
+
+        if (!uniqueSnippets.contains(snippet.trim())) {
+            uniqueSnippets.add(snippet.trim());
+        } else {
+            snippet = "";
         }
 
         return snippet.trim();
@@ -320,6 +326,10 @@ public class SearchServiceImpl implements SearchService {
         log.info("Page '{}', Max relevance '{}',  Absolute relevance '{}', Relative relevance '{}'",
                 page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);
 
+        if (snippet.trim().isEmpty()) {
+            return null;
+        }
+
         String sizeFont = "<h3>%s</h3>";
         String formattedTitle = String.format(sizeFont, title);
         String formattedSnippet = String.format(sizeFont, snippet);
@@ -343,21 +353,30 @@ public class SearchServiceImpl implements SearchService {
         this.uniqueLemmas = uniqueLemmas;
         this.maxRelevance = Collections.max(currentPageRelevanceMap.values());
 
-        int totalResults = currentMatchingPages.size();
-        int totalPages = (int) Math.ceil((double) totalResults / currentLimit);
-        int currentPage = (currentOffset / currentLimit) + 1;
-
-        List<SearchResult> results = currentMatchingPages.stream()
+        Set<String> processedSnippets = new HashSet<>();
+        List<SearchResult> results = currentMatchingPages
+                .stream()
                 .sorted((p1, p2) -> Float.compare(
                         currentPageRelevanceMap.get(p2),
-                        currentPageRelevanceMap.get(p1))) // Сортировка по релевантности
-                .skip(currentOffset)
-                .limit(currentLimit)
+                        currentPageRelevanceMap.get(p1)))
                 .map(page -> {
                     this.absoluteRelevance = currentPageRelevanceMap.get(page);
-                    return mapToSearchResult(page);
+                    SearchResult searchResult = mapToSearchResult(page);
+
+                    if (searchResult != null && !searchResult.getSnippet().isEmpty()
+                            && processedSnippets.add(searchResult.getSnippet())) {
+                        return searchResult;
+                    }
+                    return null;
                 })
+                .filter(Objects::nonNull)
+                .skip(currentOffset)
+                .limit(currentLimit)
                 .toList();
+
+        int totalResults = processedSnippets.size();
+        int totalPages = (int) Math.ceil((double) totalResults / currentLimit);
+        int currentPage = (currentOffset / currentLimit) + 1;
 
         return new SearchResponse(true, totalResults, results, currentPage, totalPages, null);
     }
@@ -387,12 +406,9 @@ public class SearchServiceImpl implements SearchService {
         return findMatchingPages(lemmaEntities, currentSiteEntity);
     }
 
-
     // Получает леммы для страницы.
     private Set<LemmaEntity> getLemmasForPage(PageEntity page) {
-        List<IndexEntity> indexEntities = indexRepository.findByPage(page);
-
-        return indexEntities.stream()
+        return indexRepository.findByPage(page).stream()
                 .map(IndexEntity::getLemma)
                 .collect(Collectors.toSet());
     }
