@@ -16,6 +16,7 @@ import searchengine.repository.SiteRepository;
 import searchengine.utils.Lemmatizer;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -420,18 +421,15 @@ public class SearchServiceImpl implements SearchService {
 
     // Вычисляет абсолютную релевантность страниц.
     private Map<PageEntity, Float> calculateAbsoluteRelevance() {
-        Map<PageEntity, Float> pageRelevanceMap = new HashMap<>();
+        Map<PageEntity, Float> pageRelevanceMap = new ConcurrentHashMap<>();
+        currentMatchingPages.parallelStream().forEach(page -> {
+            float totalRank = getLemmasForPage(page).stream()
+                    .map(lemmaEntity -> getRankForLemmaAndPage(page, lemmaEntity))
+                    .reduce(0f, Float::sum);
 
-        for (PageEntity page : currentMatchingPages) {
-            float totalRank = 0;
-
-            Set<LemmaEntity> lemmasOnPage = getLemmasForPage(page);
-
-            for (LemmaEntity lemmaEntity : lemmasOnPage) {
-                totalRank += getRankForLemmaAndPage(page, lemmaEntity);
-            }
             pageRelevanceMap.put(page, totalRank);
-        }
+        });
+
         return pageRelevanceMap;
     }
 
