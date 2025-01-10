@@ -138,6 +138,16 @@ public class HtmlLoader {
         return -1;
     }
 
+    public static String getSchemeBaseUrl(String url) {
+        try {
+            URI uri = new URI(url);
+            return new URI(uri.getScheme(), uri.getHost(), null, null).toString();
+        } catch (Exception e) {
+            log.error("Ошибка извлечения схемы URL: {}: {}", url, e.getMessage());
+            return url;
+        }
+    }
+
     public static String getBaseUrl(String url) {
         try {
             URI uri = new URI(url);
@@ -152,7 +162,7 @@ public class HtmlLoader {
         try {
             return new URI(path).getPath();
         } catch (Exception e) {
-            log.error("Invalid path: {} {}", path, e.getMessage());
+            log.error("Ошибка извлечения пути из URL: {} {}", path, e.getMessage());
             return "";
         }
     }

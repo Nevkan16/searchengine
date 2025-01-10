@@ -15,7 +15,6 @@ import searchengine.utils.HtmlLoader;
 import searchengine.utils.Lemmatizer;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -52,17 +51,17 @@ public class PageProcessor {
     public void processPage(String url) {
         SiteEntity siteEntity = null;
         try {
-            siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl(url));
+            siteEntity = siteCRUDService.getSiteByUrl(HtmlLoader.getSchemeBaseUrl(url));
             if (siteEntity == null) {
                 log.info("Сайт не найден. Попытка создать сайт...");
-                siteEntity = siteCRUDService.createSiteIfNotExist(getBaseUrl(url));
+                siteEntity = siteCRUDService.createSiteIfNotExist(HtmlLoader.getSchemeBaseUrl(url));
                 if (siteEntity == null) {
                     log.warn("Не удалось создать сайт для индексации: {}", url);
                     return;
                 }
             }
-            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(getPath(url));
-            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(getPath(url)));
+            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(HtmlLoader.getPath(url));
+            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(HtmlLoader.getPath(url)));
             entityTableService.resetAutoIncrementForAllTables();
             Document document = htmlLoader.fetchHtmlDocument(url, fakeConfig);
             if (document == null) {
@@ -71,7 +70,7 @@ public class PageProcessor {
                 return;
             }
             saveAndProcessPage(url, document, siteEntity);
-            siteCRUDService.updateSiteStatusAfterIndexing(getBaseUrl(url));
+            siteCRUDService.updateSiteStatusAfterIndexing(HtmlLoader.getSchemeBaseUrl(url));
             log.info("Индексация страницы {} завершена успешно.", url);
         } catch (Exception e) {
             log.error("Ошибка при обработке страницы: {}", url, e);
@@ -81,23 +80,6 @@ public class PageProcessor {
         }
     }
 
-    public String getBaseUrl(String url) {
-        try {
-            URI uri = new URI(url);
-            return new URI(uri.getScheme(), uri.getHost(), null, null).toString();
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException("Некорректный URL: " + url, e);
-        }
-    }
-
-    private String getPath(String url) {
-        try {
-            return new URI(url).getPath();
-        } catch (Exception e) {
-            log.error("Ошибка при извлечении path из URL: {}", url, e);
-            return null;
-        }
-    }
 
     public void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {
         Map<String, Integer> lemmasCount = lemmatizer.getLemmasCount(textContent);

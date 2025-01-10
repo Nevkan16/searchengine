@@ -53,12 +53,16 @@ public class IndexingServiceImpl implements IndexingService {
 
     @Override
     public boolean indexPage(String url) {
-        log.info("Запуск индексации страницы: {}", url);
+        log.info("Запуск индексации отдельной страницы. Переданный URL от пользователя: {}", url);
 
         url = configUtil.validateURL(url);
 
         if (url == null) {
             log.info("Индексация страницы остановлена: некорректный URL.");
+            return false;
+        }
+        if (HtmlLoader.getPath(url).isEmpty() || HtmlLoader.getPath(url) == null) {
+            log.info("Индексация страницы остановлена: путь страницы не передан.");
             return false;
         }
 

@@ -71,7 +71,7 @@ public class ConfigUtil {
 
     public String formatURL(String url) {
         if (url == null || url.isEmpty()) {
-            log.info("URL передан пустым");
+            log.info("URL передан пустым.");
             return null;
         }
 
@@ -98,7 +98,7 @@ public class ConfigUtil {
         for (Site site : notFormatted) {
             String formattedUrl = formatURL(site.getUrl());
             if (formattedUrl != null) {
-                formattedUrls.add(getBaseUrl(formattedUrl));
+                formattedUrls.add(HtmlLoader.getSchemeBaseUrl(formattedUrl));
             }
         }
 
@@ -114,12 +114,12 @@ public class ConfigUtil {
     // Валидируем переданный Url (форматированный url сравнивается с форматированными именамим из списка)
     public String validateURL(String url) {
         if (url == null || url.trim().isEmpty()) {
-            log.info("URL передан пустым");
+            log.info("URL передан пустым.");
             return null;
         }
 
         String formattedUrl = formatURL(url);
-        String extractedUrl = getBaseUrl(formattedUrl);
+        String extractedUrl = HtmlLoader.getSchemeBaseUrl(formattedUrl);
 
         if (!isUrlInSiteList(extractedUrl)) {
             log.info("URL не найден в списке сайтов: {}", formattedUrl);
@@ -127,9 +127,5 @@ public class ConfigUtil {
         }
         log.info("URL найден в списке сайтов: {}", extractedUrl);
         return formattedUrl;
-    }
-
-    private String getBaseUrl(String url) {
-        return HtmlLoader.getBaseUrl(url);
     }
 }
