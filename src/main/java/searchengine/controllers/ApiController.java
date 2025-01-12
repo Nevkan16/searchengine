@@ -10,7 +10,6 @@ import searchengine.dto.ApiResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.*;
-import searchengine.utils.EntityTableUtil;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -61,10 +60,9 @@ public class ApiController {
     @GetMapping("/search")
     public ResponseEntity<SearchResponse> search(
             @RequestParam(value = "query", required = false) String query,
-            @RequestParam(value = "site", required = false) String site,
-            @RequestParam(value = "page", defaultValue = "1") int currentPage) {
+            @RequestParam(value = "site", required = false) String site) {
 
-        int currentLimit = 20;
+        int currentLimit = 0;
 
         if (query == null || query.isBlank()) {
             SearchResponse response = new SearchResponse(
@@ -75,7 +73,7 @@ public class ApiController {
         if (site != null && site.isBlank()) {
             site = null;
         }
-        int currentOffset = (currentPage - 1) * currentLimit;
+        int currentOffset = 0;
         SearchResponse searchResponse = searchService.search(query, site, currentOffset, currentLimit);
 
         return ResponseEntity.ok(searchResponse);
