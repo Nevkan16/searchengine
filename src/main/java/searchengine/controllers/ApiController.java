@@ -2,6 +2,7 @@ package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.constants.ErrorMessages;
@@ -21,6 +22,8 @@ public class ApiController {
     private final IndexingServiceImpl indexingService;
     private final SearchService searchService;
     private final ApiResponse goodResponse = new ApiResponse(true, null);
+    @Value("${search-results.showing-limit}")
+    private int limit;
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -59,20 +62,21 @@ public class ApiController {
     public ResponseEntity<SearchResponse> search(
             @RequestParam(value = "query", required = false) String query,
             @RequestParam(value = "site", required = false) String site,
-            @RequestParam(value = "offset", defaultValue = "0") int offset) {
-        int limit = 20;
+            @RequestParam(value = "page", defaultValue = "1") int currentPage) {
+
+        int currentLimit = 20;
 
         if (query == null || query.isBlank()) {
-            SearchResponse response = new SearchResponse
-                    (false, null, null, null, null, ErrorMessages.EMPTY_QUERY);
+            SearchResponse response = new SearchResponse(
+                    false, null, null, null, null, ErrorMessages.EMPTY_QUERY);
             return ResponseEntity.badRequest().body(response);
         }
 
         if (site != null && site.isBlank()) {
             site = null;
         }
-
-        SearchResponse searchResponse = searchService.search(query, site, offset, limit);
+        int currentOffset = (currentPage - 1) * currentLimit;
+        SearchResponse searchResponse = searchService.search(query, site, currentOffset, currentLimit);
 
         return ResponseEntity.ok(searchResponse);
     }

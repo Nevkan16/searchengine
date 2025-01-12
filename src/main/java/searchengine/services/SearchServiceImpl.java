@@ -2,7 +2,9 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import searchengine.dto.search.Pagination;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.search.SearchResult;
 import searchengine.model.IndexEntity;
@@ -31,7 +33,8 @@ public class SearchServiceImpl implements SearchService {
     private String[] words;
     private String currentQuery;
     private int currentOffset;
-    private int currentLimit;
+    @Value("${search-results.showing-limit}")
+    private int limit;
     private Set<PageEntity> currentMatchingPages;
     private Map<PageEntity, Float> currentPageRelevanceMap;
     private Set<String> uniqueLemmas;
@@ -52,7 +55,6 @@ public class SearchServiceImpl implements SearchService {
         try {
             this.currentQuery = query;
             this.currentOffset = offset;
-            this.currentLimit = limit;
 
             log.info("Starting search with query: '{}', site: '{}', offset: {}, limit: {}",
                     query, site, offset, limit);
@@ -112,9 +114,9 @@ public class SearchServiceImpl implements SearchService {
             double percentage = (double) lemmaPageCount / totalPages;
 
             if (percentage > PERCENT_THRESHOLD) {
-                if (lemmas.size() == 1) {
+                if (lemmas.size() >= 1) {
 
-                    log.info("Keeping lemma '{}' because it is the only lemma in the query.", lemma);
+                    log.info("Keeping lemma '{}' because it is the query is unique.", lemma);
                     continue;
                 }
                 excludedLemmas.add(lemma);
@@ -349,13 +351,21 @@ public class SearchServiceImpl implements SearchService {
         return result;
     }
 
-    // Генерирует ответ для поиска.
-    private SearchResponse generateSearchResponse(Set<String> uniqueLemmas) {
-        this.uniqueLemmas = uniqueLemmas;
-        this.maxRelevance = Collections.max(currentPageRelevanceMap.values());
+    private SearchResponse buildSearchResponse(int totalResults, List<SearchResult> paginatedSnippets, Pagination pagination) {
+        return new SearchResponse(
+                true,
+                totalResults,
+                paginatedSnippets,
+                pagination.getCurrentPage(),
+                pagination.getTotalPages(),
+                null
+        );
+    }
 
+    private List<SearchResult> getAllUniqueSnippets() {
         Set<String> processedSnippets = new HashSet<>();
-        List<SearchResult> results = currentMatchingPages
+
+        return currentMatchingPages
                 .stream()
                 .sorted((p1, p2) -> Float.compare(
                         currentPageRelevanceMap.get(p2),
@@ -371,15 +381,35 @@ public class SearchServiceImpl implements SearchService {
                     return null;
                 })
                 .filter(Objects::nonNull)
-                .skip(currentOffset)
-                .limit(currentLimit)
                 .toList();
+    }
 
-        int totalResults = processedSnippets.size();
-        int totalPages = (int) Math.ceil((double) totalResults / currentLimit);
-        int currentPage = (currentOffset / currentLimit) + 1;
+    private Pagination calculatePagination(int totalResults, int limit, int offset) {
+        int totalPages = (int) Math.ceil((double) totalResults / limit);
+        int currentPage = (offset / limit) + 1;
 
-        return new SearchResponse(true, totalResults, results, currentPage, totalPages, null);
+        return new Pagination(totalResults, totalPages, currentPage, limit, offset);
+    }
+
+    private List<SearchResult> getPaginatedSnippets(List<SearchResult> allSnippets, Pagination pagination) {
+        return allSnippets.stream()
+                .skip((long) (pagination.getCurrentPage() - 1) * pagination.getLimit())
+                .limit(pagination.getLimit())
+                .toList();
+    }
+
+    // Генерирует ответ для поиска.
+    private SearchResponse generateSearchResponse(Set<String> uniqueLemmas) {
+        this.uniqueLemmas = uniqueLemmas;
+        this.maxRelevance = Collections.max(currentPageRelevanceMap.values());
+
+        List<SearchResult> allSnippets = getAllUniqueSnippets();
+
+        Pagination pagination = calculatePagination(allSnippets.size(), limit, currentOffset);
+
+        List<SearchResult> paginatedSnippets = getPaginatedSnippets(allSnippets, pagination);
+
+        return buildSearchResponse(allSnippets.size(), paginatedSnippets, pagination);
     }
 
     // Получает сущности лемм из репозитория.

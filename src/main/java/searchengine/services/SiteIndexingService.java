@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.nodes.Document;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.constants.ErrorMessages;
@@ -31,7 +32,8 @@ public class SiteIndexingService {
     private final PageProcessor pageProcessor;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
-    private final int maxDepth = 1;
+    @Value("${site-indexing.max-depth}")
+    private int maxDepth;
 
     private final HtmlLoader htmlLoader;
 

@@ -16,7 +16,10 @@ logging:
   level:
     org.hibernate.SQL: OFF
     org.hibernate.type.descriptor.sql.BasicBinder: OFF
-
+site-indexing:
+  max-depth: 3
+search-results:
+  showing-limit: 20
 
 indexing-settings:
   sites:
