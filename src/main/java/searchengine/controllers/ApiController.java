@@ -2,7 +2,6 @@ package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.constants.ErrorMessages;
@@ -21,9 +20,6 @@ public class ApiController {
     private final IndexingServiceImpl indexingService;
     private final SearchService searchService;
     private final ApiResponse goodResponse = new ApiResponse(true, null);
-    @Value("${search-results.showing-limit}")
-    private int limit;
-
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
         return ResponseEntity.ok(statisticsService.getStatistics());

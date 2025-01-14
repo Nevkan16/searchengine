@@ -13,6 +13,6 @@ public interface LemmaRepository extends JpaRepository<LemmaEntity, Integer> {
     Optional<LemmaEntity> findByLemmaAndSite(String lemma, SiteEntity site);
     @Query("SELECT l FROM LemmaEntity l WHERE l.lemma IN :lemmas ORDER BY l.frequency ASC")
     List<LemmaEntity> findByLemmaInOrderByFrequencyAsc(@Param("lemmas") List<String> lemmas);
-
+    List<LemmaEntity> findByLemma(String lemmaName);
 }
 
