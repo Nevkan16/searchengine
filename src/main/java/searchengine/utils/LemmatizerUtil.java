@@ -8,14 +8,14 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.*;
 @Component
-public class Lemmatizer {
+public class LemmatizerUtil {
 
     private static final Set<String> EXCLUDED_POS_TAGS = new HashSet<>(Arrays.asList(
             "СОЮЗ", "МЕЖД", "ПРЕДЛ", "ЧАСТ", "МС"));
 
     private final LuceneMorphology luceneMorphology;
 
-    public Lemmatizer() throws IOException {
+    public LemmatizerUtil() throws IOException {
         this.luceneMorphology = new RussianLuceneMorphology();
     }
 

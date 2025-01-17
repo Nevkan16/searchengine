@@ -23,7 +23,6 @@ public class EntityTableUtil {
         List<String> tableNames = new ArrayList<>();
         // Получаем метамодель всех сущностей
         for (EntityType<?> entityType : entityManager.getMetamodel().getEntities()) {
-            // Имя таблицы из аннотации @Table
             String tableName = entityType.getName();
             Table tableAnnotation = entityType.getJavaType().getAnnotation(Table.class);
             if (tableAnnotation != null) {

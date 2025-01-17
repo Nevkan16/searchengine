@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.crud;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,8 +9,6 @@ import searchengine.config.SitesList;
 import searchengine.constants.ErrorMessages;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
-import searchengine.repository.IndexRepository;
-import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.utils.ConfigUtil;
@@ -27,11 +25,8 @@ public class SiteCRUDService {
 
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
-    private final LemmaRepository lemmaRepository;
-    private final IndexRepository indexRepository;
     private final SitesList sitesList;
     private final ConfigUtil configUtil;
-
 
     @Transactional
     public void createSite(Site site) {
@@ -41,7 +36,7 @@ public class SiteCRUDService {
         siteRepository.save(siteEntity);
     }
 
-    SiteEntity createSiteIfNotExist(String url) {
+    public SiteEntity createSiteIfNotExist(String url) {
         ConfigUtil configUtil = new ConfigUtil(sitesList);
         String siteName = configUtil.getSiteNameFromConfig(url);
 
@@ -160,18 +155,6 @@ public class SiteCRUDService {
         log.info("Удаление завершено. Удалено сайтов: {}", sitesToDelete.size());
     }
 
-    @Transactional
-    public void deleteAllSites() {
-       log.info("Удаление всех сайтов из базы данных...");
-
-        pageRepository.deleteAll();
-        siteRepository.deleteAll();
-        lemmaRepository.deleteAll();
-        indexRepository.deleteAll();
-
-        log.info("Все сайты удалены из базы данных.");
-    }
-
     public List<String> getSitesForIndexing() {
         List<SiteEntity> indexingSites = siteRepository.findByStatus(SiteEntity.Status.INDEXING);
         if (indexingSites.isEmpty()) {
@@ -189,12 +172,5 @@ public class SiteCRUDService {
     public SiteEntity getSiteByUrl(String url) {
         return siteRepository.findByUrl(url)
                 .orElse(null);
-    }
-
-    public void isDatabaseEmpty() {
-        long count = siteRepository.count();
-        if (count == 0) {
-            log.info("База данных пуста.");
-        }
     }
 }

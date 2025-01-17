@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.implementations;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +14,10 @@ import searchengine.model.SiteEntity;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.SiteRepository;
-import searchengine.utils.Lemmatizer;
+import searchengine.services.interfaces.SearchService;
+import searchengine.utils.LemmatizerUtil;
 import searchengine.utils.QueryUtil;
-import searchengine.utils.SnippetGenerator;
+import searchengine.utils.SnippetGeneratorUtil;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,11 +39,11 @@ public class SearchServiceImpl implements SearchService {
     private float absoluteRelevance;
     private float maxRelevance;
     private SiteEntity currentSiteEntity;
-    private final Lemmatizer lemmatizer;
+    private final LemmatizerUtil lemmatizerUtil;
     private final SiteRepository siteRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    private final SnippetGenerator snippetGenerator;
+    private final SnippetGeneratorUtil snippetGeneratorUtil;
     private final QueryUtil queryUtil;
 
     @Override
@@ -83,7 +84,7 @@ public class SearchServiceImpl implements SearchService {
 
     // Извлекает леммы из строки запроса.
     private Set<String> extractLemmas() {
-        return lemmatizer.extractLemmasFromQuery(currentQuery);
+        return lemmatizerUtil.extractLemmasFromQuery(currentQuery);
     }
 
 
@@ -110,7 +111,7 @@ public class SearchServiceImpl implements SearchService {
 
         List<String> formattedQuery = queryUtil.formattedQuery(currentQuery);
 
-        String snippet = snippetGenerator.generateSnippet(page.getContent(), formattedQuery);
+        String snippet = snippetGeneratorUtil.generateSnippet(page.getContent(), formattedQuery);
 
         log.info("Page '{}', Max relevance '{}',  Absolute relevance '{}', Relative relevance '{}'",
                 page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);

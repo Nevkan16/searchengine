@@ -8,7 +8,9 @@ import searchengine.constants.ErrorMessages;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.services.*;
+import searchengine.services.implementations.IndexingServiceImpl;
+import searchengine.services.interfaces.SearchService;
+import searchengine.services.interfaces.StatisticsService;
 
 @Slf4j
 @RequiredArgsConstructor

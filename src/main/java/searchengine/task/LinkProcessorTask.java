@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 @RequiredArgsConstructor
-public class LinkProcessor {
+public class LinkProcessorTask {
     private static final Set<String> visitedLinks = Collections.synchronizedSet(ConcurrentHashMap.newKeySet());
     private static final Set<String> INVALID_EXTENSIONS = Set.of(
             ".pdf", ".jpg", ".png", ".zip", ".docx", ".xlsx", ".gif", ".mp4", ".mp3", ".php", ".jpeg"
@@ -57,8 +57,8 @@ public class LinkProcessor {
 
     public static boolean hasHtmlDoctype(String content) {
         if (content == null) return false;
-        String htmlDoctypePattern = "<!doctype\\s+html.*?>";
-        return Pattern.compile(htmlDoctypePattern, Pattern.CASE_INSENSITIVE).matcher(content).find();
+        String htmlDocTypePattern = "<!doctype\\s+html.*?>";
+        return Pattern.compile(htmlDocTypePattern, Pattern.CASE_INSENSITIVE).matcher(content).find();
     }
 
     public static boolean isEmptyPage(String content) {

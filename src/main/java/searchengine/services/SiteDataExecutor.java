@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
+import searchengine.services.crud.SiteCRUDService;
 import searchengine.utils.ConfigUtil;
 import searchengine.utils.EntityTableUtil;
 
@@ -23,7 +24,7 @@ public class SiteDataExecutor {
 
     private final SiteCRUDService siteCRUDService;
     private final SiteRepository siteRepository;
-    private final EntityTableUtil entityTableService;
+    private final EntityTableUtil entityTableUtil;
     private ExecutorService executorService;
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final ConfigUtil configUtil;
@@ -45,7 +46,7 @@ public class SiteDataExecutor {
             siteCRUDService.deleteSitesNotInConfig(configUtil.getAvailableSites());
             List<Site> configuredSites = configUtil.getAvailableSites();
             deleteSitesInParallel(configuredSites);
-            entityTableService.resetAutoIncrementForAllTables();
+            entityTableUtil.resetAutoIncrementForAllTables();
             createOrUpdateSites(configuredSites);
             log.info("Обновление данных завершено.");
         } finally {

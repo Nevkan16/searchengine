@@ -3,7 +3,7 @@ package searchengine.utils;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import searchengine.config.FakeConfig;
 
 import java.io.IOException;
@@ -13,8 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 
 @Slf4j
-@Service
-public class HtmlLoader {
+@Component
+public class HtmlLoaderUtil {
     private static final int TASK_TIMEOUT_SECONDS = 10;
     private final ConcurrentHashMap<String, Boolean> domainMethodMap = new ConcurrentHashMap<>();
 

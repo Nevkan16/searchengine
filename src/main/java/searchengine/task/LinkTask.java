@@ -9,10 +9,10 @@ import org.springframework.transaction.UnexpectedRollbackException;
 import searchengine.config.FakeConfig;
 import searchengine.constants.ErrorMessages;
 import searchengine.model.SiteEntity;
-import searchengine.services.PageProcessor;
-import searchengine.services.SiteCRUDService;
+import searchengine.services.crud.SiteCRUDService;
 import searchengine.services.SiteIndexingService;
-import searchengine.utils.HtmlLoader;
+import searchengine.utils.HtmlLoaderUtil;
+import searchengine.utils.PageProcessorUtil;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -32,7 +32,7 @@ public class LinkTask extends RecursiveTask<Void> {
     private final int maxDepth;
     private final FakeConfig fakeConfig;
     private final SiteCRUDService siteCRUDService;
-    private final PageProcessor pageProcessor;
+    private final PageProcessorUtil pageProcessorUtil;
 
     @Override
     protected Void compute() {
@@ -63,7 +63,7 @@ public class LinkTask extends RecursiveTask<Void> {
         if (SiteIndexingService.isStopProcessing()) {
             return;
         }
-        LinkProcessor linkProcessor = new LinkProcessor(getBaseDomain());
+        LinkProcessorTask linkProcessor = new LinkProcessorTask(getBaseDomain());
         try {
             Set<LinkTask> subTasks = processLinks(linkProcessor);
             invokeAll(subTasks);
@@ -71,12 +71,12 @@ public class LinkTask extends RecursiveTask<Void> {
         }
     }
 
-    private Set<LinkTask> processLinks(LinkProcessor linkProcessor) {
+    private Set<LinkTask> processLinks(LinkProcessorTask linkProcessor) {
         AtomicBoolean stopFlag = SiteIndexingService.getStopFlagForSite(getBaseUrl());
         if (stopFlag == null || stopFlag.get()) return new HashSet<>();
 
         Set<LinkTask> subTasks = new HashSet<>();
-        HtmlLoader htmlLoader = new HtmlLoader();
+        HtmlLoaderUtil htmlLoader = new HtmlLoaderUtil();
         SiteEntity siteEntity;
 
         try {
@@ -106,7 +106,7 @@ public class LinkTask extends RecursiveTask<Void> {
         return subTasks;
     }
 
-    private void processLink(String linkHref, HtmlLoader htmlLoader, SiteEntity siteEntity, Set<LinkTask> subTasks) {
+    private void processLink(String linkHref, HtmlLoaderUtil htmlLoader, SiteEntity siteEntity, Set<LinkTask> subTasks) {
         try {
             Document childDoc = htmlLoader.fetchHtmlDocument(linkHref, fakeConfig);
 
@@ -117,7 +117,7 @@ public class LinkTask extends RecursiveTask<Void> {
             }
 
             savePageToDatabase(linkHref, childDoc);
-            subTasks.add(new LinkTask(childDoc, linkHref, depth, maxDepth, fakeConfig, siteCRUDService, pageProcessor));
+            subTasks.add(new LinkTask(childDoc, linkHref, depth, maxDepth, fakeConfig, siteCRUDService, pageProcessorUtil));
 
         } catch (Exception e) {
             log.error("Unexpected error while processing URL: {} {}", linkHref, e.getMessage());
@@ -129,7 +129,7 @@ public class LinkTask extends RecursiveTask<Void> {
         SiteEntity siteEntity = null;
         try {
             siteEntity = siteCRUDService.getSiteByUrl(getBaseUrl());
-            pageProcessor.saveAndProcessPage(url, document, siteEntity);
+            pageProcessorUtil.saveAndProcessPage(url, document, siteEntity);
         } catch (UnexpectedRollbackException e) {
             log.error("Transaction rollback occurred for page: {}", url);
             if (siteEntity != null) {
@@ -170,6 +170,6 @@ public class LinkTask extends RecursiveTask<Void> {
     }
 
     private String getBaseDomain() {
-        return HtmlLoader.getBaseUrl(baseUrl);
+        return HtmlLoaderUtil.getBaseUrl(baseUrl);
     }
 }

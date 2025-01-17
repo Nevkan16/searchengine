@@ -8,8 +8,8 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class SnippetGenerator {
-    private final Lemmatizer lemmatizer;
+public class SnippetGeneratorUtil {
+    private final LemmatizerUtil lemmatizerUtil;
     private static final int SNIPPET_WINDOW = 160;
 
     // Класс для хранения минимальной разницы и ключей
@@ -20,7 +20,7 @@ public class SnippetGenerator {
     }
 
     public String generateSnippet(String content, List<String> queryLemmas) {
-        String cleanedText = lemmatizer.cleanHtml(content);
+        String cleanedText = lemmatizerUtil.cleanHtml(content);
 
         cleanedText = cleanHtmlTags(cleanedText);
 
@@ -47,7 +47,7 @@ public class SnippetGenerator {
 
         for (String word : words) {
             word = word.toLowerCase();
-            Set<String> lemmas = new HashSet<>(lemmatizer.extractLemmasFromQuery(word));
+            Set<String> lemmas = new HashSet<>(lemmatizerUtil.extractLemmasFromQuery(word));
             wordLemmasList.add(new AbstractMap.SimpleEntry<>(word, lemmas));
         }
 
@@ -300,7 +300,7 @@ public class SnippetGenerator {
         String[] words = snippet.split("\\s+");
         return Arrays.stream(words)
                 .map(word -> {
-                    String lemma = lemmatizer.extractLemmasFromQuery(word).stream()
+                    String lemma = lemmatizerUtil.extractLemmasFromQuery(word).stream()
                             .findFirst()
                             .orElse("").toLowerCase();
 

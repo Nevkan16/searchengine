@@ -16,6 +16,5 @@ public interface ErrorMessages {
     String FAILED_TO_LOAD_HTML = "Не удалось загрузить HTML-документ для сайта: ";
     String ERROR_PROCESS_SITE = "Ошибка при обработке сайта: ";
     String PROCESS_NOT_RUNNING = "Процесс не запущен!";
-
 }
 

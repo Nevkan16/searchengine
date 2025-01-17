@@ -1,13 +1,17 @@
-package searchengine.services;
+package searchengine.services.implementations;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.constants.ErrorMessages;
 import searchengine.repository.PageRepository;
-import searchengine.task.LinkProcessor;
+import searchengine.utils.PageProcessorUtil;
+import searchengine.services.SiteDataExecutor;
+import searchengine.services.SiteIndexingService;
+import searchengine.services.interfaces.IndexingService;
+import searchengine.task.LinkProcessorTask;
 import searchengine.utils.ConfigUtil;
-import searchengine.utils.HtmlLoader;
+import searchengine.utils.HtmlLoaderUtil;
 
 @Slf4j
 @Service
@@ -16,7 +20,7 @@ public class IndexingServiceImpl implements IndexingService {
 
     private final SiteDataExecutor siteDataExecutor;
     private final SiteIndexingService siteIndexingService;
-    private final PageProcessor pageProcessor;
+    private final PageProcessorUtil pageProcessorUtil;
     private final ConfigUtil configUtil;
     private final PageRepository pageRepository;
 
@@ -29,7 +33,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         try {
             log.info("Запуск процесса индексации...");
-            LinkProcessor.clearVisitedLinks();
+            LinkProcessorTask.clearVisitedLinks();
             siteDataExecutor.refreshAllSitesData();
             siteIndexingService.processSites();
             return true;
@@ -61,14 +65,14 @@ public class IndexingServiceImpl implements IndexingService {
             log.info("Индексация страницы остановлена: некорректный URL.");
             return false;
         }
-        if (HtmlLoader.getPath(url).isEmpty() || HtmlLoader.getPath(url) == null) {
+        if (HtmlLoaderUtil.getPath(url).isEmpty() || HtmlLoaderUtil.getPath(url) == null) {
             log.info("Индексация страницы остановлена: путь страницы не передан.");
             return false;
         }
 
         try {
-            pageProcessor.processPage(url);
-            return pageRepository.findByPath(HtmlLoader.getPath(url)).isPresent();
+            pageProcessorUtil.processPage(url);
+            return pageRepository.findByPath(HtmlLoaderUtil.getPath(url)).isPresent();
         } catch (Exception e) {
             log.info("Ошибка при индексации страницы {}: {}", url, e.getMessage());
             return false;

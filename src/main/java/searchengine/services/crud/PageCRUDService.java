@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.crud;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

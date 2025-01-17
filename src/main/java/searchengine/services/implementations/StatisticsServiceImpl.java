@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.implementations;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -9,6 +9,7 @@ import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.SiteEntity;
 import searchengine.repository.SiteRepository;
+import searchengine.services.interfaces.StatisticsService;
 import searchengine.utils.ConfigUtil;
 
 import java.time.ZoneId;

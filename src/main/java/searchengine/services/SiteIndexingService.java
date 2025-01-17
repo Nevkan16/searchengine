@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import searchengine.config.FakeConfig;
 import searchengine.constants.ErrorMessages;
+import searchengine.services.crud.SiteCRUDService;
 import searchengine.task.LinkTask;
-import searchengine.utils.HtmlLoader;
+import searchengine.utils.PageProcessorUtil;
+import searchengine.utils.HtmlLoaderUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,13 +31,13 @@ public class SiteIndexingService {
     private final FakeConfig fakeConfig;
     private final AtomicBoolean manuallyStopped = new AtomicBoolean(false);
     private final SiteCRUDService siteCRUDService;
-    private final PageProcessor pageProcessor;
+    private final PageProcessorUtil pageProcessorUtil;
     private static final ConcurrentHashMap<String, AtomicBoolean> siteStopFlags = new ConcurrentHashMap<>();
     private static final AtomicBoolean stopProcessing = new AtomicBoolean(false);
     @Value("${site-indexing.max-depth}")
     private int maxDepth;
 
-    private final HtmlLoader htmlLoader;
+    private final HtmlLoaderUtil htmlLoaderUtil;
 
     public void processSites() {
         log.info("Запуск индексации страниц сайта..");
@@ -82,14 +84,14 @@ public class SiteIndexingService {
         for (String siteUrl : sitesUrls) {
             try {
                 siteStopFlags.put(siteUrl, new AtomicBoolean(false));
-                Document doc = htmlLoader.fetchHtmlDocument(siteUrl, fakeConfig);
+                Document doc = htmlLoaderUtil.fetchHtmlDocument(siteUrl, fakeConfig);
                 if (doc == null) {
                     siteCRUDService.updateSiteStatusAfterIndexing(siteUrl);
                 }
 
                 if (doc != null) {
                     LinkTask linkTask = new LinkTask(
-                            doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessor);
+                            doc, siteUrl, 0, getMaxDepth(), fakeConfig, siteCRUDService, pageProcessorUtil);
                     tasks.add(linkTask);
                     forkJoinPool.execute(linkTask);
                 } else {

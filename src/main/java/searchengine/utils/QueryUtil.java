@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class QueryUtil {
     private final LemmaRepository lemmaRepository;
-    private final Lemmatizer lemmatizer;
+    private final LemmatizerUtil lemmatizerUtil;
     private final IndexRepository indexRepository;
     private final PageRepository pageRepository;
     private static final double THRESHOLD_PERCENTAGE = 75;
@@ -138,7 +138,7 @@ public class QueryUtil {
     }
 
     private Set<String> extractLemmas(String query) {
-        return lemmatizer.extractLemmasFromQuery(query);
+        return lemmatizerUtil.extractLemmasFromQuery(query);
     }
 
     private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {

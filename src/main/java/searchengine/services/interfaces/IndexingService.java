@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.interfaces;
 
 public interface IndexingService {
     boolean startIndexing();

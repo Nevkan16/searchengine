@@ -10,6 +10,5 @@ public interface SiteRepository extends JpaRepository<SiteEntity, Long> {
     Optional<SiteEntity> findByUrl(String url);
 
     List<SiteEntity> findByStatus(SiteEntity.Status status);
-
 }
 

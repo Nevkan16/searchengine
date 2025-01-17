@@ -98,7 +98,7 @@ public class ConfigUtil {
         for (Site site : notFormatted) {
             String formattedUrl = formatURL(site.getUrl());
             if (formattedUrl != null) {
-                formattedUrls.add(HtmlLoader.getSchemeBaseUrl(formattedUrl));
+                formattedUrls.add(HtmlLoaderUtil.getSchemeBaseUrl(formattedUrl));
             }
         }
 
@@ -119,7 +119,7 @@ public class ConfigUtil {
         }
 
         String formattedUrl = formatURL(url);
-        String extractedUrl = HtmlLoader.getSchemeBaseUrl(formattedUrl);
+        String extractedUrl = HtmlLoaderUtil.getSchemeBaseUrl(formattedUrl);
 
         if (!isUrlInSiteList(extractedUrl)) {
             log.info("URL не найден в списке сайтов: {}", formattedUrl);
