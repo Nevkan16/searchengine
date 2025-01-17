@@ -11,12 +11,23 @@ import java.util.stream.Collectors;
 public class SnippetGeneratorUtil {
     private final LemmatizerUtil lemmatizerUtil;
     private static final int SNIPPET_WINDOW = 160;
+    private Map<Integer, Set<String>> result;
+    private List<Set<String>> uniqueValuesList;
+    private ResultData resultData;
 
     // Класс для хранения минимальной разницы и ключей
     static class ResultData {
         Integer finalUpperKey = null;
         Integer finalLowerKey = null;
         int minDivided = Integer.MAX_VALUE;
+
+        void update(Integer upperKey, Integer lowerKey, int divided) {
+            if (divided < minDivided) {
+                minDivided = divided;
+                finalUpperKey = upperKey;
+                finalLowerKey = lowerKey;
+            }
+        }
     }
 
     public String generateSnippet(String content, List<String> queryLemmas) {
@@ -127,7 +138,7 @@ public class SnippetGeneratorUtil {
     }
 
     // Подсчёт символов в диапазоне
-    private  int calculateCharCount(String[] words, int start, int end) {
+    private int calculateCharCount(String[] words, int start, int end) {
         int count = 0;
         for (int i = start; i <= end; i++) {
             count += words[i].length() + 1;
@@ -135,9 +146,13 @@ public class SnippetGeneratorUtil {
         return count;
     }
 
-    private  Map<Integer, Set<String>> rebuildResultMap(Map<Integer, Set<String>> result, Map<Integer, Set<String>> resultMap) {
+    public Map<Integer, Set<String>> rebuildResultMap(Map<Integer, Set<String>> inputResult, Map<Integer,
+            Set<String>> resultMap) {
+        this.result = inputResult;
+        this.uniqueValuesList = new ArrayList<>(new LinkedHashSet<>(result.values()));
+        this.resultData = new ResultData();
+
         Map<Integer, Set<String>> rebuiltMap = new LinkedHashMap<>();
-        List<Set<String>> uniqueValuesList = new ArrayList<>(new LinkedHashSet<>(result.values()));
 
         if (uniqueValuesList.size() == 1) {
             Integer singleKey = result.keySet().iterator().next();
@@ -151,11 +166,8 @@ public class SnippetGeneratorUtil {
         List<Integer> sortedKeysAscending = new ArrayList<>(resultMap.keySet());
         sortedKeysAscending.sort(Comparator.naturalOrder());
 
-        ResultData resultData = new ResultData();
-
-        processDescending(result, uniqueValuesList, sortedKeysDescending, resultData);
-
-        processAscending(result, uniqueValuesList, sortedKeysAscending, resultData);
+        processDescending(sortedKeysDescending);
+        processAscending(sortedKeysAscending);
 
         if (resultData.finalUpperKey != null && resultData.finalLowerKey != null) {
             rebuiltMap.put(resultData.finalUpperKey, result.get(resultData.finalUpperKey));
@@ -165,26 +177,30 @@ public class SnippetGeneratorUtil {
         return rebuiltMap;
     }
 
-    private  void processDescending(Map<Integer, Set<String>> result, List<Set<String>> uniqueValuesList,
-                                          List<Integer> sortedKeysDescending, ResultData resultData) {
-        for (Integer upperKey : sortedKeysDescending) {
-            Integer currentKey = upperKey;
-            Integer lowerKey = null;
+    private void processKeys(List<Integer> sortedKeys, boolean ascending) {
+        for (Integer startKey : sortedKeys) {
+            Integer currentKey = startKey;
+            Integer boundaryKey = null; // Ключ для определения диапазона
             Set<Set<String>> currentUniqueValues = new HashSet<>();
 
             if (result.containsKey(currentKey)) {
                 currentUniqueValues.add(result.get(currentKey));
             }
 
-            while ((currentKey = new TreeMap<>(result).lowerKey(currentKey)) != null) {
+            while ((currentKey = getNextKey(currentKey, ascending)) != null) {
                 Set<String> currentValue = result.get(currentKey);
                 if (currentValue != null && currentUniqueValues.add(currentValue)) {
-                    lowerKey = currentKey;
+                    boundaryKey = currentKey; // Обновляем границу диапазона
                 }
 
                 if (currentUniqueValues.size() == uniqueValuesList.size()) {
-                    if (lowerKey != null) {
-                        updateResultData(resultData, upperKey, lowerKey, upperKey - lowerKey);
+                    if (boundaryKey != null) {
+                        // Рассчитываем границы диапазона
+                        int lowerKey = ascending ? startKey : boundaryKey;
+                        int upperKey = ascending ? boundaryKey : startKey;
+                        int range = upperKey - lowerKey;
+
+                        resultData.update(upperKey, lowerKey, range);
                     }
                     break;
                 }
@@ -192,40 +208,17 @@ public class SnippetGeneratorUtil {
         }
     }
 
-    private  void processAscending(Map<Integer, Set<String>> result, List<Set<String>> uniqueValuesList,
-                                         List<Integer> sortedKeysAscending, ResultData resultData) {
-        for (Integer lowerKey : sortedKeysAscending) {
-            Integer currentKey = lowerKey;
-            Integer upperKey = null;
-            Set<Set<String>> currentUniqueValues = new HashSet<>();
-
-            // Добавляем текущий нижний ключ
-            if (result.containsKey(currentKey)) {
-                currentUniqueValues.add(result.get(currentKey));
-            }
-
-            while ((currentKey = new TreeMap<>(result).higherKey(currentKey)) != null) {
-                Set<String> currentValue = result.get(currentKey);
-                if (currentValue != null && currentUniqueValues.add(currentValue)) {
-                    upperKey = currentKey;
-                }
-
-                if (currentUniqueValues.size() == uniqueValuesList.size()) {
-                    if (upperKey != null) {
-                        updateResultData(resultData, upperKey, lowerKey, upperKey - lowerKey);
-                    }
-                    break;
-                }
-            }
-        }
+    private Integer getNextKey(Integer currentKey, boolean ascending) {
+        TreeMap<Integer, Set<String>> treeMap = new TreeMap<>(result);
+        return ascending ? treeMap.higherKey(currentKey) : treeMap.lowerKey(currentKey);
     }
 
-    private  void updateResultData(ResultData resultData, Integer upperKey, Integer lowerKey, int divided) {
-        if (divided < resultData.minDivided) {
-            resultData.minDivided = divided;
-            resultData.finalUpperKey = upperKey;
-            resultData.finalLowerKey = lowerKey;
-        }
+    private void processDescending(List<Integer> sortedKeysDescending) {
+        processKeys(sortedKeysDescending, false);
+    }
+
+    private void processAscending(List<Integer> sortedKeysAscending) {
+        processKeys(sortedKeysAscending, true);
     }
 
     // Карта которая хранит min значение со всеми индексами
