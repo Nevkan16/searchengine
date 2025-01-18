@@ -12,10 +12,8 @@ import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
 import searchengine.repository.IndexRepository;
-import searchengine.repository.LemmaRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.services.interfaces.SearchService;
-import searchengine.utils.LemmatizerUtil;
 import searchengine.utils.QueryUtil;
 import searchengine.utils.SnippetGeneratorUtil;
 
@@ -35,13 +33,11 @@ public class SearchServiceImpl implements SearchService {
     private Set<PageEntity> currentMatchingPages;
     private Map<PageEntity, Float> currentPageRelevanceMap;
     private Set<String> uniqueLemmas;
-    private final Map<String, SearchResult> snippetCache = new HashMap<>();
+    private final Map<String, SearchResult> snippetCache = new ConcurrentHashMap<>();
     private float absoluteRelevance;
     private float maxRelevance;
     private SiteEntity currentSiteEntity;
-    private final LemmatizerUtil lemmatizerUtil;
     private final SiteRepository siteRepository;
-    private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final SnippetGeneratorUtil snippetGeneratorUtil;
     private final QueryUtil queryUtil;
@@ -56,7 +52,7 @@ public class SearchServiceImpl implements SearchService {
             log.info("Starting search with query: '{}', site: '{}', offset: {}, limit: {}",
                     query, site, offset, limit);
 
-            Set<String> uniqueLemmas = extractLemmas();
+            Set<String> uniqueLemmas = queryUtil.extractLemmas(currentQuery);
             if (uniqueLemmas.isEmpty()) {
                 return createEmptyResponse("No valid lemmas found");
             }
@@ -82,11 +78,6 @@ public class SearchServiceImpl implements SearchService {
         return new SearchResponse(true, 0, Collections.emptyList(), 0, 0, message);
     }
 
-    // Извлекает леммы из строки запроса.
-    private Set<String> extractLemmas() {
-        return lemmatizerUtil.extractLemmasFromQuery(currentQuery);
-    }
-
 
     // Извлекает заголовок из контента.
     private String extractTitleFromContent(String content) {
@@ -98,8 +89,19 @@ public class SearchServiceImpl implements SearchService {
         return "No title";
     }
 
+    public void clearSnippetCache() {
+        synchronized (snippetCache) {
+            int MAX_SNIPPET_CACHE_SIZE = 500;
+            if (snippetCache.size() > MAX_SNIPPET_CACHE_SIZE) {
+                snippetCache.clear();
+                log.info("Snippet cache has been cleared");
+            }
+        }
+    }
+
     // Преобразует страницу в результат поиска.
     private SearchResult mapToSearchResult(PageEntity page) {
+        clearSnippetCache();
         String cacheKey = page.getContent().hashCode() + "_" + uniqueLemmas.hashCode();
 
         if (snippetCache.containsKey(cacheKey)) {
@@ -109,9 +111,7 @@ public class SearchServiceImpl implements SearchService {
         float relativeRelevance = absoluteRelevance / maxRelevance;
         String title = extractTitleFromContent(page.getContent());
 
-        List<String> formattedQuery = queryUtil.formattedQuery(currentQuery);
-
-        String snippet = snippetGeneratorUtil.generateSnippet(page.getContent(), formattedQuery);
+        String snippet = snippetGeneratorUtil.generateSnippet(page.getContent(), currentQuery);
 
         log.info("Page '{}', Max relevance '{}',  Absolute relevance '{}', Relative relevance '{}'",
                 page.getPath(), maxRelevance, absoluteRelevance, relativeRelevance);
@@ -199,27 +199,10 @@ public class SearchServiceImpl implements SearchService {
         return buildSearchResponse(allSnippets.size(), paginatedSnippets, pagination);
     }
 
-    // Получает сущности лемм из репозитория.
-    private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
-        return lemmaRepository.findByLemmaInOrderByFrequencyAsc(new ArrayList<>(lemmas));
-    }
-
     // Получает страницы для конкретной леммы.
     private Set<PageEntity> findPagesForLemma(Set<String> lemmas) {
         log.info("Finding pages for lemmas: {} and siteEntity: {}",
                 lemmas, currentSiteEntity == null ? "All sites" : currentSiteEntity.getUrl());
-
-        List<LemmaEntity> lemmaEntities = fetchLemmaEntities(lemmas);
-
-        if (currentSiteEntity != null) {
-            lemmaEntities = lemmaEntities.stream()
-                    .filter(lemma -> lemma.getSite().equals(currentSiteEntity))
-                    .toList();
-        }
-
-        if (lemmaEntities.isEmpty()) {
-            return Collections.emptySet();
-        }
 
         return queryUtil.findMatchingPages(currentQuery, currentSiteEntity);
     }

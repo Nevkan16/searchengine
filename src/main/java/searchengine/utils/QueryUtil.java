@@ -11,6 +11,7 @@ import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Component
@@ -22,18 +23,19 @@ public class QueryUtil {
     private final IndexRepository indexRepository;
     private final PageRepository pageRepository;
     private static final double THRESHOLD_PERCENTAGE = 75;
+    private final ConcurrentHashMap<String, Set<String>> lemmaCache = new ConcurrentHashMap<>();
 
-    public List<String> formattedQuery(String query) {
-        Set<String> extractedLemmas = extractLemmas(query);
-        List<LemmaEntity> lemmaEntities = fetchLemmaEntities((extractedLemmas));
+    public List<String> getPresentSortedLemmaNames(String query) {
+        Set<String> extractedLemmasNames = extractLemmas(query);
+        Set<String> afterExtractingLemmas = filterLemmasByPercentage(extractedLemmasNames);
+        List<LemmaEntity> lemmaEntities = fetchLemmaEntities((afterExtractingLemmas));
         List<LemmaEntity> agg = aggregateLemmaFrequencies(lemmaEntities);
-        List<String> sortedLemmaNames = getSortedLemmaNamesFromEntities(agg);
-        return filterLemmasByPercentage(sortedLemmaNames);
+        return getSortedLemmaNamesFromEntities(agg);
     }
 
     public Set<PageEntity> findMatchingPages(String query, SiteEntity siteEntity) {
-        List<String> formatted = formattedQuery(query);
-        Set<PageEntity> getPageFromSite = getPagesMatchingAllLemmas(formatted);
+        List<String> formatted = getPresentSortedLemmaNames(query);
+        Set<PageEntity> getPageFromSite = getPagesMatchingAllLemmas(formatted, query);
         return filterPagesBySite(getPageFromSite, siteEntity);
     }
 
@@ -47,42 +49,40 @@ public class QueryUtil {
                 .collect(Collectors.toSet());
     }
 
-    private List<String> filterLemmasByPercentage(List<String> sortedLemmaNames) {
+    private Set<String> filterLemmasByPercentage(Set<String> queryLemmas) {
         long totalPageCount = pageRepository.count();
 
         if (totalPageCount == 0) {
-            return Collections.emptyList();
+            return Collections.emptySet();
         }
+        Set<String> filteredLemmaNames = new HashSet<>();
 
-        List<String> filteredLemmaNames = new ArrayList<>();
-
-        for (String lemmaName : sortedLemmaNames) {
+        for (String lemmaName : queryLemmas) {
             List<LemmaEntity> lemmaEntities = getLemmasByName(lemmaName);
             if (!lemmaEntities.isEmpty()) {
-                int totalFrequency = lemmaEntities
-                        .stream()
+                int totalFrequency = lemmaEntities.stream()
                         .mapToInt(LemmaEntity::getFrequency)
                         .sum();
-
                 double percentage = ((double) totalFrequency / totalPageCount) * 100;
-
                 if (percentage <= THRESHOLD_PERCENTAGE) {
-                    filteredLemmaNames.add(lemmaName); // Добавляем слово, если процент <= порога
+                    filteredLemmaNames.add(lemmaName);
                 } else {
                     log.info("Лемма '{}' превышает порог {}% ({}%). Удаляется из списка.",
                             lemmaName, THRESHOLD_PERCENTAGE, String.format(Locale.US, "%.2f", percentage));
                 }
             } else {
-                log.info("Для леммы '{}' не найдено соответствующих записей. Она также удаляется из списка.", lemmaName);
+                log.info("Для леммы '{}' не найдено соответствующих записей.", lemmaName);
             }
         }
 
         return filteredLemmaNames;
     }
 
-    private Set<PageEntity> getPagesMatchingAllLemmas(List<String> sortedLemmaNames) {
-        if (sortedLemmaNames.isEmpty()) {
-            return Collections.emptySet(); // Возвращаем пустое множество
+    private Set<PageEntity> getPagesMatchingAllLemmas(List<String> sortedLemmaNames, String query) {
+        Set<String> extractedLemmasNames = extractLemmas(query);
+
+        if (sortedLemmaNames.isEmpty() || extractedLemmasNames.isEmpty()) {
+            return Collections.emptySet();
         }
 
         String firstLemmaName = sortedLemmaNames.get(0);
@@ -97,18 +97,13 @@ public class QueryUtil {
             pages.addAll(indexRepository.findPagesByLemma(lemmaEntity));
         }
 
-        List<String> remainingLemmaNames = sortedLemmaNames.subList(1, sortedLemmaNames.size());
-
-
         return pages.parallelStream()
-                .filter(page -> doesPageContainAllLemmas(page, remainingLemmaNames))
+                .filter(page -> doesPageContainAllExtractedLemmas(page, extractedLemmasNames))
                 .collect(Collectors.toSet());
     }
 
-
-
-    private boolean doesPageContainAllLemmas(PageEntity page, List<String> remainingLemmaNames) {
-        for (String lemmaName : remainingLemmaNames) {
+    private boolean doesPageContainAllExtractedLemmas(PageEntity page, Set<String> extractedLemmasNames) {
+        for (String lemmaName : extractedLemmasNames) {
             List<LemmaEntity> lemmas = getLemmasByName(lemmaName);
 
             boolean pageContainsLemma = lemmas.stream()
@@ -137,8 +132,15 @@ public class QueryUtil {
                 .collect(Collectors.toList());
     }
 
-    private Set<String> extractLemmas(String query) {
-        return lemmatizerUtil.extractLemmasFromQuery(query);
+    public Set<String> extractLemmas(String query) {
+        int MAX_CACHE_SIZE = 30000;
+        synchronized (lemmaCache) {
+            if (lemmaCache.size() >= MAX_CACHE_SIZE) {
+                log.warn("Cache size limit reached. Clearing cache...");
+                lemmaCache.clear();
+            }
+        }
+        return lemmaCache.computeIfAbsent(query, lemmatizerUtil::extractLemmasFromQuery);
     }
 
     private List<LemmaEntity> fetchLemmaEntities(Set<String> lemmas) {
@@ -159,7 +161,7 @@ public class QueryUtil {
                     aggregatedLemma.setFrequency(entry.getValue());
                     return aggregatedLemma;
                 })
-                .sorted(Comparator.comparingInt(LemmaEntity::getFrequency)) // Сортировка по частоте
+                .sorted(Comparator.comparingInt(LemmaEntity::getFrequency))
                 .collect(Collectors.toList());
     }
 }

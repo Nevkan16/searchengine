@@ -1,16 +1,20 @@
 package searchengine.utils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SnippetGeneratorUtil {
     private final LemmatizerUtil lemmatizerUtil;
-    private static final int SNIPPET_WINDOW = 160;
+    private static final int SNIPPET_WINDOW = 220;
+    private final QueryUtil queryUtil;
+    private final Map<String, List<Map.Entry<String, Set<String>>>> queryLemmasCache = new ConcurrentHashMap<>();
     private Map<Integer, Set<String>> result;
     private List<Set<String>> uniqueValuesList;
     private ResultData resultData;
@@ -30,12 +34,11 @@ public class SnippetGeneratorUtil {
         }
     }
 
-    public String generateSnippet(String content, List<String> queryLemmas) {
+    public String generateSnippet(String content, String query) {
         String cleanedText = lemmatizerUtil.cleanHtml(content);
-
         cleanedText = cleanHtmlTags(cleanedText);
 
-        List<Map.Entry<String, Set<String>>> queryMap = getWordLemmasList(queryLemmas.toString());
+        List<Map.Entry<String, Set<String>>> queryMap = getCachedQueryLemmas(query);
         List<Map.Entry<String, Set<String>>> wordLemmasList = getWordLemmasList(cleanedText);
         Map<Integer, Set<String>> intersectionMap = getIntersectionMap(queryMap, wordLemmasList);
         Set<String> minCount = getValueWithMinimalOccurrences(intersectionMap);
@@ -44,7 +47,42 @@ public class SnippetGeneratorUtil {
 
         String snippet = extractTextFragments(rebuiltMap, cleanedText);
 
-        return highlightKeywords(snippet, queryLemmas);
+        // Создаём карту лемм для извлечённого текста
+        List<Map.Entry<String, Set<String>>> extractedTextMap = getWordLemmasList(snippet);
+
+        // Проверяем, покрываются ли все леммы из запроса
+        if (!isQueryCovered(queryMap, extractedTextMap)) {
+            return ""; // Если нет, возвращаем пустую строку
+        }
+
+        return highlightKeywords(snippet, query);
+    }
+
+    private List<Map.Entry<String, Set<String>>> getCachedQueryLemmas(String query) {
+        final int MAX_CACHE_SIZE = 100;
+
+        synchronized (queryLemmasCache) {
+            if (queryLemmasCache.size() > MAX_CACHE_SIZE) {
+                log.warn("Cache size exceeded {}. Clearing cache...", MAX_CACHE_SIZE);
+                queryLemmasCache.clear(); // Очищаем весь кэш
+            }
+        }
+        return queryLemmasCache.computeIfAbsent(query, this::getWordLemmasList);
+    }
+
+    private boolean isQueryCovered(List<Map.Entry<String, Set<String>>> queryMap, List<Map.Entry<String, Set<String>>> extractedTextMap) {
+        // Собираем уникальные значения из queryMap
+        Set<String> queryLemmas = queryMap.stream()
+                .flatMap(entry -> entry.getValue().stream())
+                .collect(Collectors.toSet());
+
+        // Собираем уникальные значения из extractedTextMap
+        Set<String> extractedLemmas = extractedTextMap.stream()
+                .flatMap(entry -> entry.getValue().stream())
+                .collect(Collectors.toSet());
+
+        // Проверяем, содержатся ли все леммы из запроса в извлечённом тексте
+        return extractedLemmas.containsAll(queryLemmas);
     }
 
     private String cleanHtmlTags(String input) {
@@ -66,31 +104,15 @@ public class SnippetGeneratorUtil {
     }
 
     private String extractTextFragments(Map<Integer, Set<String>> rebuildResultMap, String text) {
-        StringBuilder snippets = new StringBuilder(); // Для объединения всех фрагментов
-
-        // Разбиваем текст на слова
         String[] words = text.split("\\s+");
 
-        // Если rebuildResultMap содержит только одно значение
-        if (rebuildResultMap.size() == 1) {
-            int index = rebuildResultMap.keySet().iterator().next(); // Получаем единственный ключ
-            String snippet = buildSnippetAroundIndex(words, index);
-            if (!snippet.isEmpty()) {
-                snippets.append(snippet).append("\n"); // Добавляем фрагмент
-            }
-            return snippets.toString().trim();
+        if (rebuildResultMap.isEmpty()) {
+            return "";
         }
 
-        // Обрабатываем rebuildResultMap с верхним и нижним ключами
-        for (Integer key : rebuildResultMap.keySet()) {
-            // Строим текст вокруг каждого ключа
-            String snippet = buildSnippetAroundIndex(words, key);
-            if (!snippet.isEmpty()) {
-                snippets.append(snippet).append("\n"); // Добавляем фрагмент
-            }
-        }
+        int index = rebuildResultMap.keySet().iterator().next();
 
-        return snippets.toString().trim(); // Возвращаем объединённые фрагменты
+        return buildSnippetAroundIndex(words, index);
     }
 
     // Метод для построения фрагмента вокруг индекса
@@ -98,7 +120,7 @@ public class SnippetGeneratorUtil {
         int start = index;
         int end = index;
 
-        int charCount = calculateCharCount(words, start, end); // Подсчёт начального количества символов
+        int charCount = calculateCharCount(words, start, end);
         while (charCount < SNIPPET_WINDOW) {
             boolean expanded = false;
 
@@ -285,23 +307,41 @@ public class SnippetGeneratorUtil {
         return result;
     }
 
-    private String highlightKeywords(String snippet, List<String> queryLemmas) {
-        Set<String> queryLemmaSet = queryLemmas.stream()
-                .map(String::toLowerCase)
-                .collect(Collectors.toSet());
+    private String highlightKeywords(String snippet, String query) {
+        List<Map.Entry<String, Set<String>>> queryMap = getCachedQueryLemmas(query);
+        List<Map.Entry<String, Set<String>>> snippetMap = getWordLemmasList(snippet);
+        Map<Integer, Set<String>> intersectionMap = getIntersectionMap(queryMap, snippetMap);
+
+        if (intersectionMap.isEmpty()) {
+            return snippet; // Ранний возврат, если пересечения отсутствуют
+        }
 
         String[] words = snippet.split("\\s+");
-        return Arrays.stream(words)
-                .map(word -> {
-                    String lemma = lemmatizerUtil.extractLemmasFromQuery(word).stream()
-                            .findFirst()
-                            .orElse("").toLowerCase();
 
-                    if (queryLemmaSet.contains(lemma)) {
-                        return "<b>" + word + "</b>";
-                    }
-                    return word;
-                })
-                .collect(Collectors.joining(" "));
+        for (Map.Entry<Integer, Set<String>> entry : intersectionMap.entrySet()) {
+            int wordIndex = entry.getKey();
+            if (wordIndex < 0 || wordIndex >= words.length) {
+                continue;
+            }
+
+            String originalWord = words[wordIndex];
+            Set<String> intersectingWords = entry.getValue();
+
+            if (shouldHighlight(originalWord, intersectingWords)) {
+                words[wordIndex] = "<mark>" + originalWord + "</mark>";
+            }
+        }
+
+        return String.join(" ", words);
+    }
+
+    private boolean shouldHighlight(String word, Set<String> intersectingLemmas) {
+        Set<String> wordLemmas = queryUtil.extractLemmas(word.toLowerCase());
+        for (String lemma : intersectingLemmas) {
+            if (wordLemmas.contains(lemma)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

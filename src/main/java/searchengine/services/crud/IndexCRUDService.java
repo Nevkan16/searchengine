@@ -12,7 +12,6 @@ import searchengine.repository.IndexRepository;
 @Service
 @RequiredArgsConstructor
 public class IndexCRUDService {
-
     private final IndexRepository indexRepository;
 
     @Transactional

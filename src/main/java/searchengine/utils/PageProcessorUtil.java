@@ -81,7 +81,6 @@ public class PageProcessorUtil {
         }
     }
 
-
     public void processLemmasAndIndexes(PageEntity pageEntity, SiteEntity siteEntity, String textContent) {
         Map<String, Integer> lemmasCount = lemmatizerUtil.getLemmasCount(textContent);
         for (Map.Entry<String, Integer> entry : lemmasCount.entrySet()) {

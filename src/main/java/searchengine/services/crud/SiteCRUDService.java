@@ -96,8 +96,6 @@ public class SiteCRUDService {
         siteRepository.save(siteEntity);
     }
 
-
-    // В классе SiteIndexingService
     public void updateSiteStatusAfterIndexing(String siteUrl) {
         SiteEntity siteEntity = siteRepository.findByUrl(siteUrl)
                 .orElseThrow(() -> new IllegalArgumentException("Сайт не найден: " + siteUrl));
@@ -118,7 +116,6 @@ public class SiteCRUDService {
         siteRepository.save(siteEntity);
         log.info("Статус сайта обновлён на INDEXED: " + siteUrl);
     }
-
 
     private void populateSiteEntity(SiteEntity siteEntity, Site site) {
         String formattedUrl = configUtil.formatURL(site.getUrl());
