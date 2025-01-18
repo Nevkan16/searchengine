@@ -47,12 +47,10 @@ public class SnippetGeneratorUtil {
 
         String snippet = extractTextFragments(rebuiltMap, cleanedText);
 
-        // Создаём карту лемм для извлечённого текста
         List<Map.Entry<String, Set<String>>> extractedTextMap = getWordLemmasList(snippet);
 
-        // Проверяем, покрываются ли все леммы из запроса
         if (!isQueryCovered(queryMap, extractedTextMap)) {
-            return ""; // Если нет, возвращаем пустую строку
+            return "";
         }
 
         return highlightKeywords(snippet, query);
@@ -64,14 +62,14 @@ public class SnippetGeneratorUtil {
         synchronized (queryLemmasCache) {
             if (queryLemmasCache.size() > MAX_CACHE_SIZE) {
                 log.warn("Cache size exceeded {}. Clearing cache...", MAX_CACHE_SIZE);
-                queryLemmasCache.clear(); // Очищаем весь кэш
+                queryLemmasCache.clear();
             }
         }
         return queryLemmasCache.computeIfAbsent(query, this::getWordLemmasList);
     }
 
-    private boolean isQueryCovered(List<Map.Entry<String, Set<String>>> queryMap, List<Map.Entry<String, Set<String>>> extractedTextMap) {
-        // Собираем уникальные значения из queryMap
+    private boolean isQueryCovered(List<Map.Entry<String, Set<String>>> queryMap,
+                                   List<Map.Entry<String, Set<String>>> extractedTextMap) {
         Set<String> queryLemmas = queryMap.stream()
                 .flatMap(entry -> entry.getValue().stream())
                 .collect(Collectors.toSet());
@@ -81,7 +79,6 @@ public class SnippetGeneratorUtil {
                 .flatMap(entry -> entry.getValue().stream())
                 .collect(Collectors.toSet());
 
-        // Проверяем, содержатся ли все леммы из запроса в извлечённом тексте
         return extractedLemmas.containsAll(queryLemmas);
     }
 
@@ -202,7 +199,7 @@ public class SnippetGeneratorUtil {
     private void processKeys(List<Integer> sortedKeys, boolean ascending) {
         for (Integer startKey : sortedKeys) {
             Integer currentKey = startKey;
-            Integer boundaryKey = null; // Ключ для определения диапазона
+            Integer boundaryKey = null;
             Set<Set<String>> currentUniqueValues = new HashSet<>();
 
             if (result.containsKey(currentKey)) {
@@ -212,7 +209,7 @@ public class SnippetGeneratorUtil {
             while ((currentKey = getNextKey(currentKey, ascending)) != null) {
                 Set<String> currentValue = result.get(currentKey);
                 if (currentValue != null && currentUniqueValues.add(currentValue)) {
-                    boundaryKey = currentKey; // Обновляем границу диапазона
+                    boundaryKey = currentKey;
                 }
 
                 if (currentUniqueValues.size() == uniqueValuesList.size()) {
@@ -328,7 +325,7 @@ public class SnippetGeneratorUtil {
             Set<String> intersectingWords = entry.getValue();
 
             if (shouldHighlight(originalWord, intersectingWords)) {
-                words[wordIndex] = "<mark>" + originalWord + "</mark>";
+                words[wordIndex] = "<b>" + originalWord + "</b>";
             }
         }
 

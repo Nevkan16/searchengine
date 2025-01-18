@@ -151,24 +151,23 @@ public class SearchServiceImpl implements SearchService {
 
     private List<SearchResult> getAllUniqueSnippets() {
         Set<String> processedSnippets = new HashSet<>();
+        List<SearchResult> uniqueResults = new ArrayList<>();
 
-        return currentMatchingPages
-                .stream()
-                .sorted((p1, p2) -> Float.compare(
-                        currentPageRelevanceMap.get(p2),
-                        currentPageRelevanceMap.get(p1)))
-                .map(page -> {
-                    this.absoluteRelevance = currentPageRelevanceMap.get(page);
-                    SearchResult searchResult = mapToSearchResult(page);
+        List<PageEntity> sortedPages = new ArrayList<>(currentMatchingPages);
+        sortedPages.sort((p1, p2) -> Float.compare(
+                currentPageRelevanceMap.get(p2),
+                currentPageRelevanceMap.get(p1)));
 
-                    if (searchResult != null && !searchResult.getSnippet().isEmpty()
-                            && processedSnippets.add(searchResult.getSnippet())) {
-                        return searchResult;
-                    }
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .toList();
+        for (PageEntity page : sortedPages) {
+            this.absoluteRelevance = currentPageRelevanceMap.get(page);
+            SearchResult searchResult = mapToSearchResult(page);
+
+            if (searchResult != null && !searchResult.getSnippet().isEmpty()
+                    && processedSnippets.add(searchResult.getSnippet())) {
+                uniqueResults.add(searchResult);
+            }
+        }
+        return uniqueResults;
     }
 
     private Pagination calculatePagination(int totalResults, int limit, int offset) {
