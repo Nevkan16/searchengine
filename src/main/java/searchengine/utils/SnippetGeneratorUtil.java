@@ -53,7 +53,44 @@ public class SnippetGeneratorUtil {
             return "";
         }
 
-        return highlightKeywords(snippet, query);
+        String formattedSnippet = formattedSnippet(snippet);
+
+        return highlightKeywords(formattedSnippet, query);
+    }
+
+    private String formattedSnippet(String snippet) {
+        String trimmedSnippet = snippet.trim();
+        boolean startsWithEllipsis = trimmedSnippet.startsWith("...");
+        String remainingSnippet = startsWithEllipsis ? trimmedSnippet.substring(3).trim() : trimmedSnippet;
+
+        if (Character.isUpperCase(remainingSnippet.charAt(0))) {
+            return trimmedSnippet;
+        }
+        String[] words = remainingSnippet.split("\\s+");
+        int originalLength = remainingSnippet.length();
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+        while (i < words.length) {
+            result.append(words[i]).append(" ");
+            if (endsWithSentenceDelimiter(words[i])) {
+                break;
+            }
+            i++;
+        }
+
+        String updatedSnippet = (remainingSnippet.length() > result.length())
+                ? remainingSnippet.substring(result.length()).trim()
+                : "";
+        // Если результат пуст или удалено больше 25% текста, возвращаем оригинальный текст
+        if (result.length() == 0 || (result.length() * 4 > originalLength)) {
+            return trimmedSnippet;
+        }
+
+        return startsWithEllipsis ? "... " + updatedSnippet : updatedSnippet;
+    }
+
+    private boolean endsWithSentenceDelimiter(String word) {
+        return word.endsWith(".") || word.endsWith("?") || word.endsWith("!") || word.endsWith(";");
     }
 
     private List<Map.Entry<String, Set<String>>> getCachedQueryLemmas(String query) {

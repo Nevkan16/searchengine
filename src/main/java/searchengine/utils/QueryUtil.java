@@ -22,7 +22,7 @@ public class QueryUtil {
     private final LemmatizerUtil lemmatizerUtil;
     private final IndexRepository indexRepository;
     private final PageRepository pageRepository;
-    private static final double THRESHOLD_PERCENTAGE = 75;
+    private static final double THRESHOLD_PERCENTAGE = 90;
     private final ConcurrentHashMap<String, Set<String>> lemmaCache = new ConcurrentHashMap<>();
 
     public List<String> getPresentSortedLemmaNames(String query) {
