@@ -134,9 +134,12 @@ public class ConfigUtil {
             return false;
         }
 
-        String regex = "^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/$"; // Шаблон для проверки домена с одним "/"
+        if (!url.contains("/")) {
+            return false;
+        }
 
-        return url.matches(regex);
+        String path = HtmlLoaderUtil.getPath(url);
+
+        return "/".equals(path);
     }
-
 }

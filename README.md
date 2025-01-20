@@ -121,7 +121,7 @@ API: GET `/api/stopIndexing`
 ### Вкладка SEARCH
 Обрабатывает поисковые запросы и отображает релевантные результаты. Поиск можно выполнять по всем сайтам или по одному из выпадающего списка.
 
-![14](https://github.com/user-attachments/assets/82dd180d-1f91-46a0-9624-7f110d3c6128)
+![3](https://github.com/user-attachments/assets/e4cf1cf6-2fea-45b6-9701-a46e1417ea66)
 
 API: GET `/api/search`
 * Формат ответа:
