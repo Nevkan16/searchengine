@@ -9,6 +9,7 @@ import searchengine.constants.ErrorMessages;
 import searchengine.model.LemmaEntity;
 import searchengine.model.PageEntity;
 import searchengine.model.SiteEntity;
+import searchengine.repository.PageRepository;
 import searchengine.services.crud.IndexCRUDService;
 import searchengine.services.crud.LemmaCRUDService;
 import searchengine.services.crud.PageCRUDService;
@@ -32,9 +33,11 @@ public class PageProcessorUtil {
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
     private final EntityTableUtil entityTableService;
+    private final PageRepository pageRepository;
 
     public void saveAndProcessPage(String url, Document document, SiteEntity siteEntity) throws Exception {
         String path = new URI(url).getPath();
+        log.info("PATH: {}", path);
         int statusCode = htmlLoaderUtil.getHttpStatusCode(url, fakeConfig);
         String content = document.html();
 
@@ -61,8 +64,9 @@ public class PageProcessorUtil {
                     return;
                 }
             }
-            Optional<PageEntity> pageEntity = pageCRUDService.getPageByPath(HtmlLoaderUtil.getPath(url));
-            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(HtmlLoaderUtil.getPath(url)));
+            Optional<PageEntity> pageEntity = pageRepository.findBySiteAndPath(siteEntity, HtmlLoaderUtil.getPath(url));
+            SiteEntity finalSiteEntity = siteEntity;
+            pageEntity.ifPresent(page -> pageCRUDService.deletePageLemmaByPath(finalSiteEntity, HtmlLoaderUtil.getPath(url)));
             entityTableService.resetAutoIncrementForAllTables();
             Document document = htmlLoaderUtil.fetchHtmlDocument(url, fakeConfig);
             if (document == null) {

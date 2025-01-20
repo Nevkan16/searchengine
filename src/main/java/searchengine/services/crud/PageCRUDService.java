@@ -60,14 +60,9 @@ public class PageCRUDService {
         }
     }
 
-    public Optional<PageEntity> getPageByPath(String path) {
-        return pageRepository.findByPath(path);
-    }
-
-
     @Transactional
-    public void deletePageLemmaByPath(String path) {
-        pageRepository.findByPath(path).ifPresentOrElse(
+    public void deletePageLemmaByPath(SiteEntity siteEntity, String path) {
+        pageRepository.findBySiteAndPath(siteEntity, path).ifPresentOrElse(
                 page -> {
                     int pageId = page.getId();
                     deleteIndexesAndLemmasByPageId(pageId);

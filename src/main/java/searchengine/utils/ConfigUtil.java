@@ -128,4 +128,15 @@ public class ConfigUtil {
         log.info("URL найден в списке сайтов: {}", extractedUrl);
         return formattedUrl;
     }
+
+    public boolean hasSinglePath(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+
+        String regex = "^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/$"; // Шаблон для проверки домена с одним "/"
+
+        return url.matches(regex);
+    }
+
 }
